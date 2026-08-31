@@ -42,3 +42,9 @@ yarn-error.*
 
 # domain verification build output
 .verify/
+
+# web export output
+/dist
+.vercel
+
+.env*

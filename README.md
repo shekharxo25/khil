@@ -8,6 +8,10 @@ Built with Expo SDK 57 (React Native 0.86, React 19, TypeScript). Runs in Expo G
 
 Implements the *Khil — Game Design & Interface Spec* and the *Khil wireframe set v0.1*.
 
+**Live: [khil.vercel.app](https://khil.vercel.app)** — open it on a phone, or narrow your
+browser window; the layout is built for a 375pt screen. Turn sound on: every instruction is
+spoken.
+
 ---
 
 ## Run it
@@ -27,6 +31,16 @@ To see it in a desktop browser instead:
 ```bash
 npm run web
 ```
+
+Deploy the hosted build:
+
+```bash
+vercel deploy --prod
+```
+
+`vercel.json` builds `npx expo export --platform web` into `dist/` and serves it as a
+single-page app. The SPA fallback deliberately excludes `/_expo` and `/assets`, so a missing
+bundle or sound returns a real 404 instead of silently serving the HTML shell.
 
 Verify the decision logic without launching anything:
 

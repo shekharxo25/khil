@@ -19,7 +19,14 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "Khil",
+      "shortName": "Khil",
+      "themeColor": "#2E6B58",
+      "backgroundColor": "#FBF7F1",
+      "description": "Play that quietly notices how your child is growing."
     },
     "plugins": [
       "expo-audio",
