@@ -1,20 +1,15 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Root } from './src/Root';
 
+/**
+ * Khil — a voice-first play session for ages 2–6 that quietly records how a
+ * child responds, and a parent/clinician layer that only speaks up when the
+ * same unusual pattern shows across several sessions and more than one game.
+ *
+ * Screens map 1:1 onto the wireframe set; game mechanics map 1:1 onto the game
+ * design spec. See README.md for the trace between the two and for the three
+ * rules that are enforced in code rather than in prose.
+ */
 export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
+  return <Root />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

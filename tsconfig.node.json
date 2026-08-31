@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "node16",
+    "moduleResolution": "node16",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": ".verify",
+    "rootDir": ".",
+    "types": []
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "src/domain/**/*.ts",
+    "src/lib/id.ts",
+    "src/lib/random.ts",
+    "src/lib/time.ts",
+    "src/store/types.ts",
+    "src/store/demoSeed.ts"
+  ]
+}
