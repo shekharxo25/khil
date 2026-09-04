@@ -36,11 +36,11 @@ export function Card({ tone = 'plain', label, padded = true, style, children, ..
   );
 }
 
-const TONES: Record<Tone, { bg: string; border: string; labelTone: 'faint' | 'notice' | 'brand' | 'clinic' }> = {
+const TONES: Record<Tone, { bg: string; border: string; labelTone: 'faint' | 'notice' | 'brand' | 'ink' }> = {
   plain: { bg: color.surface, border: color.hairline, labelTone: 'faint' },
   notice: { bg: color.noticeSurface, border: color.noticeEdge, labelTone: 'notice' },
   brand: { bg: color.brandTint, border: color.brandSoft, labelTone: 'brand' },
-  clinic: { bg: color.clinicSurface, border: color.clinicEdge, labelTone: 'clinic' },
+  clinic: { bg: color.surfaceSunk, border: color.hairlineStrong, labelTone: 'ink' },
   sunk: { bg: color.surfaceSunk, border: color.hairline, labelTone: 'faint' },
 };
 

@@ -1,12 +1,15 @@
 # Khil
 
-A voice-first play session for children aged 2–6 that quietly records **how** a child
-responds, and a parent/specialist layer that only speaks up when the same unusual pattern
-turns up across several sessions and more than one kind of game.
+खिल — "to bloom". A voice-first play session for children aged 2–6 that quietly records
+**how** a child responds, across an account that can hold several children, and a
+parent/specialist layer that only speaks up when the same unusual pattern turns up across
+several sessions and more than one kind of game.
 
 Built with Expo SDK 57 (React Native 0.86, React 19, TypeScript). Runs in Expo Go.
 
-Implements the *Khil — Game Design & Interface Spec* and the *Khil wireframe set v0.1*.
+Implements the *Khil — Game Design & Interface Spec* and the *Khil wireframe set v0.1*, plus
+four rounds of follow-on direction from the person commissioning it — see
+[Beyond the original spec](#beyond-the-original-spec) for what changed and why.
 
 **Live: [khil.vercel.app](https://khil.vercel.app)** — open it on a phone, or narrow your
 browser window; the layout is built for a 375pt screen. Turn sound on: every instruction is
@@ -56,11 +59,15 @@ data and exits non-zero if any invariant breaks.
 
 A flag legitimately needs a history — that is the whole point of it — so the demo path is:
 
-1. Onboard with PIN **380015** (covered PINs are listed under the field) and a DOB that
-   makes the child 3–6.
+1. Create an account with PIN **380015** (covered PINs are listed under the field), accept
+   the two consents, and add a first child with a DOB that makes them 3–6.
 2. `settings ›` → **Seed 12 days with a clustered pattern**.
 3. Back to the dashboard: the flag is there, with a full report and a specialist portal
    behind *Specialist portal ›*.
+
+From the dashboard, *Your account ›* opens the profile gate — add a second child (up to the
+plan's limit) to see that their history starts empty and stays completely separate from the
+first child's flag.
 
 **Seed 12 days of ordinary play** produces the same volume of data with no flag. Both
 options generate real telemetry rows and run them through the same engine — no flag
@@ -72,7 +79,7 @@ Useful toggles in `settings ›`:
 | --- | --- |
 | Presenter overlay | Shows the passive-capture strip and live telemetry during play. Off in real play. |
 | Show prompt text | Renders the spoken instruction as text. Breaks the pre-literate rule; for demoing on a muted laptop. |
-| MVP games only | Restricts rotation to Games 1 and 2, per the spec's scope note. |
+| MVP games only | Restricts rotation to Spot the Odd One and Point to the One I Say, per the spec's scope note. |
 | Spoken instructions | Mute the voice layer. Timing stays comparable — see `lib/speech.ts`. |
 
 ---
@@ -109,38 +116,115 @@ audit panel and in `npm run check`.
 
 | Wireframe | Screen | Notes honoured |
 | --- | --- | --- |
-| 01 Onboarding & consent | `screens/Onboarding.tsx` | DOB drives content, no age picker (1) · PIN validated against covered clusters with a waitlist state (2) · consent names the flagged segment, not full recordings (3) · a second, separate checkbox sets diagnostic expectations up front (4) |
-| 02 Child game session | `game/GameFrame.tsx` + four games | Every instruction spoken (1) · tap/drag only, 88pt minimum targets (2) · session length shown to the parent before hand-off, never to the child (3) · capture is silent in real play (4) |
-| 03 Parent dashboard | `screens/ParentDashboard.tsx` | Progress framing first (1) · calm plain-language flag, sand not red, no score (2) · one-tap booking to the mapped specialist (3) · "View full report" (4) |
+| 01 Onboarding & consent | `screens/Onboarding.tsx` | PIN validated against covered clusters with a waitlist state (2) · consent names the flagged segment, not full recordings (3) · a second, separate checkbox sets diagnostic expectations up front (4) |
+| 02 Child game session | `game/GameFrame.tsx` + eight games | Every instruction spoken (1) · tap/drag only, 88pt minimum targets (2) · session length shown to the parent before hand-off, never to the child (3) · capture is silent in real play (4) |
+| 03 Parent dashboard | `screens/ParentDashboard.tsx` | Progress framing first (1) · calm plain-language flag, indigo not red, no score (2) · one-tap booking to the mapped specialist (3) · "View full report" (4) |
 | 04 Flag detail | `screens/FlagDetail.tsx` | Behavioural description only (1) · dedicated reassurance block before the decision (2) · "Remind me later" is a real option (3) |
-| 05 Specialist portal | `screens/PediatricianList.tsx` | Scope limited to the PIN cluster (1) · review action only on active flags (2) · capacity indicator (3) |
+| 05 Specialist portal | `screens/PediatricianList.tsx` | Scope limited to the PIN cluster, now across every child on the account (1) · review action only on active flags (2) · capacity indicator (3) |
 | 06 Clip review | `screens/ClipReview.tsx` | Only the flagged segment is playable (1) · identical non-diagnostic language to the parent's report (2) · outcome tagging feeds the flag-usefulness measure (3) |
 
-Two screens beyond the set: **Session intro** (the parent-side hand-off, where the spec's
-attention-span reassurance belongs) and **Six skill areas**, which makes the dashboard's
-"6 skills tracked" stat auditable instead of decorative.
+Wireframe 01's note 1 — date of birth drives content, no manual age picker — moved with the
+child: it now governs `screens/ProfileEditor.tsx`, since a household's PIN and a child's
+birthday are answered at different moments once an account can hold more than one child.
 
-## Games → spec §2
+Screens beyond the original set: **Profile gate** (who's playing), **Profile editor**
+(add/edit a child), **Plans** (how many children an account covers), **Game picker** (choose
+today's games and, separately, today's age group), **Session intro** (the parent-side
+hand-off, where the spec's attention-span reassurance belongs), and **Six skill areas**,
+which makes the dashboard's bloom auditable instead of decorative.
+
+## Games
 
 | Game | File | Logged |
 | --- | --- | --- |
-| 1 Spot the Odd One | `game/PatternGame.tsx` | latency from prompt end, correct/incorrect, repeated taps on the same wrong tile, difficulty tier |
-| 2 Point to the One I Say | `game/LanguageGame.tsx` | latency, accuracy by word tier, whether the child dwelt before choosing |
-| 3 Copy My Beat | `game/BeatGame.tsx` | tap accuracy, inter-tap timing deviation, max sequence length, error type |
-| 4 What Happens Next | `game/SequenceGame.tsx` | final order correct, swaps before settling, time to first drag, whether the child re-ordered after audio feedback |
+| Spot the Odd One | `game/PatternGame.tsx` | latency from prompt end, correct/incorrect, repeated taps on the same wrong tile, difficulty tier |
+| Point to the One I Say | `game/LanguageGame.tsx` | latency, accuracy by word tier, whether the child dwelt before choosing |
+| Copy My Beat | `game/BeatGame.tsx` | tap accuracy, inter-tap timing deviation, max sequence length, error type |
+| What Happens Next | `game/SequenceGame.tsx` | final order correct, swaps before settling, time to first drag, whether the child re-ordered after audio feedback |
+| Wake the Sleepy Ones | `game/InhibitGame.tsx` | commission errors (tapped when it should have waited) and omission errors (no response when one was wanted), separately |
+| Sounds the Same | `game/RhymeGame.tsx` | latency and accuracy on rhyme-matching and initial-sound-matching rounds |
+| Follow the Kite String | `game/TraceGame.tsx` | mean deviation from a traced path (as a share of the canvas diagonal), lift-offs, path completion |
+| Which Has More? | `game/QuantityGame.tsx` | accuracy on near-ratio (hard) vs. obvious (easy) non-symbolic quantity comparisons |
 
-Difficulty escalates as the spec describes: colour-only → shape → subtle pattern for Game 1,
-and named object → same-category distractors → *category* prompt for Game 2, which is what
+The first four are spec §2's original set, and their difficulty escalates exactly as
+described: colour-only → shape → subtle pattern for Spot the Odd One, and named object →
+same-category distractors → *category* prompt for Point to the One I Say, which is what
 separates comprehension from rote picture-word matching.
 
 Spec §3 says the frame is the template and only the centre tile changes. That is literal
-here: `GameFrame` owns the voice bar, progress meter, "Session X of 10" counter and
-hold-to-exit; a game renders only its centre tile and implements one `GameProps` contract.
+here across all eight games: `GameFrame` owns the voice bar, progress meter, "Session X of
+10" counter and hold-to-exit; a game renders only its centre tile and implements one
+`GameProps` contract.
 
-**Game 5 ("Peekaboo Response", gaze via front camera) is deliberately not built.** The spec
-says not to build it until the consent flow and the on-device-only processing story are
-solid. Khil currently touches no camera and no microphone, which is a claim the onboarding
-screen makes to parents — adding gaze tracking would make that claim false.
+**A gaze-tracking game (front camera) is deliberately not built.** The spec says not to
+build it until the consent flow and the on-device-only processing story are solid. Khil
+touches no camera and no microphone, which is a claim the onboarding screen makes to
+parents — adding gaze tracking would make that claim false.
+
+---
+
+## Beyond the original spec
+
+Four requests came in after the first build, and each one changes something structural
+rather than cosmetic.
+
+**Accounts, not just children.** The original build assumed one child per install. A parent
+with two or three children wants to watch all of them, with separate histories — otherwise
+one child's slow week would quietly sit in the same comparison pool as another's. So the
+household (PIN, specialist, consent, plan) and the child (name, DOB, avatar, play history)
+are now separate records. `store/types.ts` has the full model; `AppStore.tsx` filters
+sessions and flags by the active child everywhere, and removing a profile removes its
+history with it rather than leaving it to quietly feed a sibling's numbers.
+
+**Plans, sized only by how many children an account covers.** Three tiers
+(`store/types.ts` → `PLANS`), Basic/Family/Family+, at 1/2/4 children. No plan gates a game,
+a skill area, or the flag engine itself — see `screens/Plans.tsx` for why: putting the
+screening logic behind a paywall would mean choosing not to tell a parent something Khil
+already noticed, and there's no version of that this product can defend. The limit is shown
+as a real state at the profile gate (a locked "add a child" tile), not discovered by
+surprise.
+
+**A game picker, and a per-session age-group override.** `screens/GamePicker.tsx` offers the
+rotation's own pick first — it is better than a parent at spotting which skill area went
+untouched — but lets a parent choose any game (up to the two-game session cap) and,
+separately, play a different age band's content for one session. An override is real and
+saved, but the resulting session is marked `off_band` and excluded from the flag engine:
+comparing a 4-year-old's timings against the 2-year-old reference band would not mean
+anything in either direction. The dashboard, session intro and game picker all say this
+plainly when an override is active.
+
+**Wider behavioural coverage.** The request was for the app to cover more of what shows up
+in early childhood as attention, impulse-control, reading-precursor, writing-precursor and
+number-sense concerns. The spec's own framing note is unambiguous that condition names never
+touch the UI or logs, so the honest way to do this is what the original four games already
+did: add games that surface the *behavioural* correlates, in plain language, with no
+diagnostic mapping anywhere near the product. Four games and four reference metrics were
+added — `Wake the Sleepy Ones` (commission/omission errors, a standard go/no-go measure),
+`Sounds the Same` (rhyme and initial-sound awareness), `Follow the Kite String`
+(grapho-motor tracing deviation), and `Which Has More?` (non-symbolic quantity comparison).
+The correspondence between what a game measures and the concern areas it was designed to
+help surface is documented **here, and only here**:
+
+| Game measures (shown to a parent/clinician) | Motivating concern areas (never shown anywhere in the app) |
+| --- | --- |
+| Pattern recognition, task-switch cost, repeated selections | attention/flexibility concerns generally |
+| Language response, shared attention, rhyme/initial-sound matching | language-delay and early literacy concerns |
+| Movement & rhythm, sequencing/working memory | motor-coordination and sequencing concerns |
+| Commission/omission errors on a wait-and-tap task | impulsivity/inattention concerns |
+| Rhyme and initial-sound awareness specifically | early reading-precursor (phonological awareness) concerns |
+| Grapho-motor tracing steadiness | early writing-precursor (fine motor) concerns |
+| Non-symbolic quantity comparison | early number-sense concerns |
+| A cluster spanning several of the above at once, repeatedly | the general "worth a second look" case the spec describes |
+
+No signal, domain, game, or line of UI copy maps one-to-one onto a single named condition,
+by design — see `domain/safeLanguage.ts` and the self-check "Every domain and module name is
+behavioural". That is a deliberate reading of the request: cover the *behaviours* clinicians
+actually screen for at this age, not attach diagnostic labels a screening toy has no
+business assigning.
+
+**Visual identity.** The palette, type and the bloom (below) replaced the earlier
+cream-and-marigold system, which read as templated. See
+[`ui/Bloom.tsx`](src/ui/Bloom.tsx) and `theme/tokens.ts` for the reasoning behind the choices.
 
 ---
 
@@ -165,7 +249,7 @@ asserted.
 
 Two smaller notes, both marked in the code:
 
-- Game 4's *time to first drag* and *swaps beyond the minimum* are recorded in the shared
+- What Happens Next's *time to first drag* and *swaps beyond the minimum* are recorded in the shared
   `response_latency_ms` and `repeat_error_count` columns rather than as new fields, which
   keeps the "one table" promise of §4.
 - The clip review is a **replay reconstructed from tap timings**, not video. The wireframe
@@ -206,12 +290,32 @@ conditions are currently unmet and why.
 
 ---
 
+## Design
+
+"Slate & Kite". The child's play surface and the account shell sit on a dark slate ground —
+the school patti every Indian child learns on — because saturated targets read harder there
+than on pastel, which matters when the thing being measured is how fast a child finds the
+odd one out. Play and profile colours come from kite paper: Uttarayan, Ahmedabad's festival,
+is where the magenta/parrot/cobalt/saffron palette in `theme/tokens.ts` comes from. Parent
+and clinician surfaces are chalk-washed paper — cool, quiet, deliberately not the warm cream
+this kind of app defaults to. Type is Baloo 2 (display) and Anek Latin (everything else),
+both from Ek Type, a foundry that draws Latin and Devanagari together.
+
+The signature element is the **bloom** (`ui/Bloom.tsx`): ten petals, one per skill area,
+filling in as the week's play covers them. It replaces the earlier progress-bar-plus-stat-row
+because a bar can only say *how much*; the bloom says *how much of what*, and a lopsided week
+looks visibly lopsided rather than merely short.
+
+The flag card is **indigo, not amber and not red** — wireframe 03's note 2 requires the flag
+to never read as alarm, and every warm notice colour fights that. Blue reads as "look at
+this", which is the register a screening aid needs when it is right only some of the time.
+
 ## Layout
 
 ```
 src/
   domain/        pure decision logic — no React, no storage, independently testable
-    domains.ts     the six skill areas behind "6 skills tracked"
+    domains.ts     the ten skill areas behind the bloom
     games.ts       game registry: age bands, domains, round counts
     norms.ts       age reference bands + provenance  ← the file to replace with sourced norms
     tiers.ts       difficulty schedule (and therefore what a "rule change" is)
@@ -219,15 +323,15 @@ src/
     signals.ts     per-visit measures → signals, incl. the switch-cost probe
     flagEngine.ts  the cluster rule
     safeLanguage.ts the language gate
-    rotation.ts    1–2 games per session, all six domains twice a week
+    rotation.ts    1–2 games per session, all ten domains twice a week
     coverage.ts    PIN → specialist mapping
     selftest.ts    the invariants, run in-app and in CI
-  game/          the shared frame, the four games, the round recorder
-  screens/       one file per wireframe screen
-  store/         AsyncStorage-backed state; demo history generator
-  ui/            design system primitives
+  game/          the shared frame, the eight games, the round recorder
+  screens/       one file per screen (wireframe-mapped and beyond)
+  store/         AsyncStorage-backed state: account + child profiles; demo history generator
+  ui/            design system primitives, incl. the bloom
   nav/           small typed stack (owns the back-lock during a session)
-  theme/         tokens
+  theme/         tokens (palette, type) and font loading
 scripts/
   verify-domain.ts   headless gate: npm run verify
 ```
@@ -237,12 +341,12 @@ whole decision layer run in plain Node, which is what `npm run verify` does.
 
 ## Data and privacy
 
-Everything lives on the device, in one AsyncStorage key. A round is a handful of numbers —
-timestamps, which tile was touched, whether it matched. There is no camera, no microphone,
-no network call, and no analytics. The specialist portal in this build reads the same local
-store, which is how the demo shows both sides; a real deployment would send only the flag
-summary and the flagged segment's tap timings, which is precisely what the consent copy
-promises.
+Everything lives on the device, in one AsyncStorage key, for every child on the account. A
+round is a handful of numbers — timestamps, which tile was touched, whether it matched.
+There is no camera, no microphone, no network call, and no analytics. The specialist portal
+in this build reads the same local store, which is how the demo shows both sides; a real
+deployment would send only the flag summary and the flagged segment's tap timings, which is
+precisely what the consent copy promises.
 
 ## Sounds
 

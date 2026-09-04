@@ -30,7 +30,8 @@
     },
     "plugins": [
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      "expo-font"
     ],
     "backgroundColor": "#FBF7F1",
     "primaryColor": "#2E6B58"

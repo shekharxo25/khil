@@ -54,7 +54,7 @@ export function GameFrame({
 
   return (
     <LinearGradient
-      colors={[color.childBgTop, color.childBgBottom]}
+      colors={[color.slate, color.slateDeep]}
       start={{ x: 0.1, y: 0 }}
       end={{ x: 0.9, y: 1 }}
       style={styles.root}

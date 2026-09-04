@@ -32,7 +32,21 @@ export type MetricId =
   | 'taskSwitchCostMs'
   | 'accuracy'
   | 'repeatErrorRate'
-  | 'rhythmDeviationMs';
+  | 'rhythmDeviationMs'
+  | 'commissionRate'
+  | 'omissionRate'
+  | 'traceDeviationPct'
+  | 'numberSenseAccuracy';
+
+/** Metrics expressed as a share rather than a duration. Formatting differs. */
+const RATE_METRICS: ReadonlySet<MetricId> = new Set<MetricId>([
+  'accuracy',
+  'repeatErrorRate',
+  'commissionRate',
+  'omissionRate',
+  'traceDeviationPct',
+  'numberSenseAccuracy',
+]);
 
 export type Provenance = 'prototype-placeholder' | 'sourced';
 
@@ -64,6 +78,9 @@ export const REFERENCE_SOURCES_NEEDED = [
   'Age-banded task-switching cost norms for ages 3–6',
   'Age-banded perseverative-response rates for a 3-choice visual task',
   'Age-banded rhythmic tapping deviation norms for ages 3–6',
+  'Age-banded go/no-go commission and omission rates for ages 3.5–6',
+  'Age-banded grapho-motor tracing deviation norms for ages 3.5–6',
+  'Age-banded non-symbolic quantity discrimination accuracy for ages 4–6',
 ];
 
 export const AGE_BANDS: AgeBand[] = [
@@ -78,6 +95,10 @@ export const AGE_BANDS: AgeBand[] = [
       accuracy: { low: 0.45, high: 1, concernDirection: 'below' },
       repeatErrorRate: { low: 0, high: 0.35, concernDirection: 'above' },
       rhythmDeviationMs: { low: 0, high: 420, concernDirection: 'above' },
+      commissionRate: { low: 0, high: 0.55, concernDirection: 'above' },
+      omissionRate: { low: 0, high: 0.4, concernDirection: 'above' },
+      traceDeviationPct: { low: 0, high: 0.22, concernDirection: 'above' },
+      numberSenseAccuracy: { low: 0.55, high: 1, concernDirection: 'below' },
     },
   },
   {
@@ -91,6 +112,10 @@ export const AGE_BANDS: AgeBand[] = [
       accuracy: { low: 0.55, high: 1, concernDirection: 'below' },
       repeatErrorRate: { low: 0, high: 0.3, concernDirection: 'above' },
       rhythmDeviationMs: { low: 0, high: 360, concernDirection: 'above' },
+      commissionRate: { low: 0, high: 0.45, concernDirection: 'above' },
+      omissionRate: { low: 0, high: 0.3, concernDirection: 'above' },
+      traceDeviationPct: { low: 0, high: 0.18, concernDirection: 'above' },
+      numberSenseAccuracy: { low: 0.6, high: 1, concernDirection: 'below' },
     },
   },
   {
@@ -104,6 +129,10 @@ export const AGE_BANDS: AgeBand[] = [
       accuracy: { low: 0.65, high: 1, concernDirection: 'below' },
       repeatErrorRate: { low: 0, high: 0.25, concernDirection: 'above' },
       rhythmDeviationMs: { low: 0, high: 300, concernDirection: 'above' },
+      commissionRate: { low: 0, high: 0.35, concernDirection: 'above' },
+      omissionRate: { low: 0, high: 0.22, concernDirection: 'above' },
+      traceDeviationPct: { low: 0, high: 0.14, concernDirection: 'above' },
+      numberSenseAccuracy: { low: 0.68, high: 1, concernDirection: 'below' },
     },
   },
   {
@@ -117,6 +146,10 @@ export const AGE_BANDS: AgeBand[] = [
       accuracy: { low: 0.72, high: 1, concernDirection: 'below' },
       repeatErrorRate: { low: 0, high: 0.2, concernDirection: 'above' },
       rhythmDeviationMs: { low: 0, high: 260, concernDirection: 'above' },
+      commissionRate: { low: 0, high: 0.25, concernDirection: 'above' },
+      omissionRate: { low: 0, high: 0.15, concernDirection: 'above' },
+      traceDeviationPct: { low: 0, high: 0.11, concernDirection: 'above' },
+      numberSenseAccuracy: { low: 0.75, high: 1, concernDirection: 'below' },
     },
   },
 ];
@@ -130,7 +163,7 @@ export function bandForAge(ageMonths: number): AgeBand {
 }
 
 export function formatBand(metric: MetricId, band: Band): string {
-  if (metric === 'accuracy' || metric === 'repeatErrorRate') {
+  if (RATE_METRICS.has(metric)) {
     return `${Math.round(band.low * 100)}–${Math.round(band.high * 100)}%`;
   }
   // A switch cost is a difference between two of the child's own timings, so

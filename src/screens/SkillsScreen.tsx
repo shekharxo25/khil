@@ -19,8 +19,8 @@ import { WEEKLY_DOMAIN_TARGET, weekCoverage } from '../domain/rotation';
  * are genuinely distinct.
  */
 export function SkillsScreen() {
-  const { state } = useApp();
-  const coverage = useMemo(() => weekCoverage(state.sessions), [state.sessions]);
+  const { sessions } = useApp();
+  const coverage = useMemo(() => weekCoverage(sessions), [sessions]);
 
   return (
     <Screen backLabel="progress" title="Six skill areas" eyebrow="This week">
@@ -52,7 +52,7 @@ export function SkillsScreen() {
                 <View style={styles.bar}>
                   <ProgressBar
                     value={Math.min(1, count / WEEKLY_DOMAIN_TARGET)}
-                    tint={count >= WEEKLY_DOMAIN_TARGET ? color.positive : color.accent}
+                    tint={count >= WEEKLY_DOMAIN_TARGET ? color.positive : color.kite.saffron}
                     height={6}
                   />
                 </View>

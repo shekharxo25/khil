@@ -86,7 +86,7 @@ const VARIANTS: Record<Variant, { bg: string; fg: string; border: string }> = {
   secondary: { bg: color.surface, fg: color.brandDeep, border: color.hairlineStrong },
   quiet: { bg: 'transparent', fg: color.inkSoft, border: 'transparent' },
   notice: { bg: color.notice, fg: '#FFFFFF', border: color.notice },
-  clinic: { bg: color.clinic, fg: '#FFFFFF', border: color.clinic },
+  clinic: { bg: color.slate, fg: '#FFFFFF', border: color.slate },
   danger: { bg: '#FCEDEA', fg: '#9C3A26', border: '#F0CFC6' },
 };
 

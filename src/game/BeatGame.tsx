@@ -31,7 +31,7 @@ const PAD_LIT_MS = 360;
 const GIVE_UP_AFTER_MS = 20_000;
 const CELEBRATE_MS = 900;
 
-const PAD_COLORS = [color.play.coral, color.play.sun, color.play.sky, color.play.grape];
+const PAD_COLORS = [color.kite.coral, color.kite.saffron, color.kite.cobalt, color.kite.violet];
 const PAD_SOUNDS: SoundName[] = ['pad-1', 'pad-2', 'pad-3', 'pad-4'];
 const PAD_GLYPHS = ['🥁', '🪘', '🔔', '🎵'];
 

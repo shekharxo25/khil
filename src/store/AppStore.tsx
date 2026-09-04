@@ -9,24 +9,43 @@ import React, {
 } from 'react';
 import { evaluateFlag, type Flag, type FlagOutcome } from '../domain/flagEngine';
 import type { SessionRecord } from '../domain/telemetry';
+import { makeId } from '../lib/id';
 import { clearState, loadState, saveState } from './storage';
 import {
+  AVATAR_COLORS,
+  AVATAR_GLYPHS,
   CONSENT_COPY_VERSION,
+  DEFAULT_PLAN,
   DEFAULT_SETTINGS,
   INITIAL_STATE,
+  PLANS,
   SCHEMA_VERSION,
+  planFor,
+  type Account,
   type AppState,
+  type Avatar,
   type ChildProfile,
   type ClusterPatient,
   type ConsentRecord,
   type PersistedState,
+  type PlanId,
   type Settings,
 } from './types';
 import { clusterPatientsFor, seedSessions, type SeedMode } from './demoSeed';
 
 type Action =
   | { type: 'hydrate'; payload: PersistedState | null }
-  | { type: 'onboard'; child: ChildProfile; consent: ConsentRecord; patients: ClusterPatient[] }
+  | {
+      type: 'create-account';
+      account: Account;
+      consent: ConsentRecord;
+      patients: ClusterPatient[];
+    }
+  | { type: 'add-profile'; profile: ChildProfile }
+  | { type: 'update-profile'; id: string; patch: Partial<ChildProfile> }
+  | { type: 'remove-profile'; id: string }
+  | { type: 'select-profile'; id: string | null }
+  | { type: 'set-plan'; plan: PlanId }
   | { type: 'add-session'; session: SessionRecord }
   | { type: 'add-flag'; flag: Flag }
   | { type: 'patch-flag'; id: string; patch: Partial<Flag> }
@@ -41,13 +60,50 @@ function reducer(state: AppState, action: Action): AppState {
         ? { ...action.payload, hydrated: true }
         : { ...INITIAL_STATE, hydrated: true };
 
-    case 'onboard':
+    case 'create-account':
       return {
         ...state,
-        child: action.child,
+        account: action.account,
         consent: action.consent,
         clusterPatients: action.patients,
       };
+
+    case 'add-profile':
+      return {
+        ...state,
+        profiles: [...state.profiles, action.profile],
+        activeProfileId: state.activeProfileId ?? action.profile.child_id,
+      };
+
+    case 'update-profile':
+      return {
+        ...state,
+        profiles: state.profiles.map(p =>
+          p.child_id === action.id ? { ...p, ...action.patch } : p,
+        ),
+      };
+
+    case 'remove-profile': {
+      const profiles = state.profiles.filter(p => p.child_id !== action.id);
+      return {
+        ...state,
+        profiles,
+        // A removed child takes their history with them. Leaving orphaned
+        // sessions behind would quietly keep feeding the flag engine.
+        sessions: state.sessions.filter(s => s.child_id !== action.id),
+        flags: state.flags.filter(f => f.child_id !== action.id),
+        activeProfileId:
+          state.activeProfileId === action.id ? (profiles[0]?.child_id ?? null) : state.activeProfileId,
+      };
+    }
+
+    case 'select-profile':
+      return { ...state, activeProfileId: action.id };
+
+    case 'set-plan':
+      return state.account
+        ? { ...state, account: { ...state.account, plan: action.plan } }
+        : state;
 
     case 'add-session':
       return { ...state, sessions: [...state.sessions, action.session] };
@@ -75,27 +131,52 @@ function reducer(state: AppState, action: Action): AppState {
   }
 }
 
-type OnboardInput = {
-  name: string;
-  dobIso: string;
+type CreateAccountInput = {
   pin: string;
   specialistId: string;
   consentClipSharing: boolean;
   consentScreeningNotDiagnosis: boolean;
 };
 
+type AddProfileInput = {
+  name: string;
+  dobIso: string;
+  avatar: Avatar;
+};
+
+export type AddProfileResult =
+  | { ok: true; profile: ChildProfile }
+  | { ok: false; reason: 'limit'; limit: number };
+
 export type AppApi = {
   state: AppState;
-  onboard: (input: OnboardInput) => void;
-  /**
-   * Records a finished session and immediately re-runs the flag engine.
-   * Returns the flag if this session completed a qualifying cluster.
-   */
+
+  // Account
+  createAccount: (input: CreateAccountInput) => void;
+  setPlan: (plan: PlanId) => void;
+
+  // Profiles
+  profiles: ChildProfile[];
+  child: ChildProfile | null;
+  addProfile: (input: AddProfileInput) => AddProfileResult;
+  updateProfile: (id: string, patch: Partial<ChildProfile>) => void;
+  removeProfile: (id: string) => void;
+  selectProfile: (id: string | null) => void;
+  canAddProfile: boolean;
+  suggestAvatar: () => Avatar;
+
+  /** Sessions and flags for the active child only. */
+  sessions: SessionRecord[];
+  flags: Flag[];
+  sessionsFor: (childId: string) => SessionRecord[];
+  flagsFor: (childId: string) => Flag[];
+
   completeSession: (session: SessionRecord) => Flag | null;
   patchFlag: (id: string, patch: Partial<Flag>) => void;
   bookAppointment: (flagId: string) => void;
   snoozeFlag: (flagId: string, days: number) => void;
   markOutcome: (flagId: string, outcome: FlagOutcome, by: string) => void;
+
   setSettings: (patch: Partial<Settings>) => void;
   seedDemoHistory: (mode: SeedMode) => void;
   resetAll: () => void;
@@ -130,13 +211,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state]);
 
-  const onboard = useCallback((input: OnboardInput) => {
-    const child: ChildProfile = {
-      child_id: `child_${input.pin}_${Date.now().toString(36)}`,
-      name: input.name.trim(),
-      dob_iso: input.dobIso,
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const createAccount = useCallback((input: CreateAccountInput) => {
+    const account: Account = {
+      account_id: makeId('acct'),
       pin: input.pin,
       specialist_id: input.specialistId,
+      plan: DEFAULT_PLAN,
       created_at: Date.now(),
     };
     const consent: ConsentRecord = {
@@ -146,25 +229,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       copy_version: CONSENT_COPY_VERSION,
     };
     dispatch({
-      type: 'onboard',
-      child,
+      type: 'create-account',
+      account,
       consent,
       patients: clusterPatientsFor(input.pin),
     });
   }, []);
 
-  // Kept in a ref so `completeSession` can read fresh state without being
-  // re-created on every session append (which would restart in-flight games).
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  const setPlan = useCallback((plan: PlanId) => dispatch({ type: 'set-plan', plan }), []);
+
+  const suggestAvatar = useCallback((): Avatar => {
+    const used = new Set(stateRef.current.profiles.map(p => p.avatar.color));
+    const nextColor = AVATAR_COLORS.find(c => !used.has(c)) ?? AVATAR_COLORS[0];
+    const glyph = AVATAR_GLYPHS[stateRef.current.profiles.length % AVATAR_GLYPHS.length];
+    return { color: nextColor, glyph };
+  }, []);
+
+  const addProfile = useCallback((input: AddProfileInput): AddProfileResult => {
+    const current = stateRef.current;
+    const limit = planFor(current.account).profileLimit;
+    if (current.profiles.length >= limit) {
+      return { ok: false, reason: 'limit', limit };
+    }
+    const profile: ChildProfile = {
+      child_id: makeId('child'),
+      name: input.name.trim(),
+      dob_iso: input.dobIso,
+      avatar: input.avatar,
+      created_at: Date.now(),
+      band_override: null,
+    };
+    dispatch({ type: 'add-profile', profile });
+    return { ok: true, profile };
+  }, []);
+
+  const updateProfile = useCallback((id: string, patch: Partial<ChildProfile>) => {
+    dispatch({ type: 'update-profile', id, patch });
+  }, []);
+
+  const removeProfile = useCallback((id: string) => {
+    dispatch({ type: 'remove-profile', id });
+  }, []);
+
+  const selectProfile = useCallback((id: string | null) => {
+    dispatch({ type: 'select-profile', id });
+  }, []);
 
   const completeSession = useCallback((session: SessionRecord): Flag | null => {
     dispatch({ type: 'add-session', session });
 
     const current = stateRef.current;
-    if (!current.child) return null;
     const sessions = [...current.sessions, session];
-    const evaluation = evaluateFlag(current.child.child_id, sessions, current.flags);
+    const evaluation = evaluateFlag(session.child_id, sessions, current.flags);
     if (evaluation.flag) {
       dispatch({ type: 'add-flag', flag: evaluation.flag });
       return evaluation.flag;
@@ -203,23 +319,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'settings', patch });
   }, []);
 
+  /** Seeds history for the ACTIVE child only, leaving siblings untouched. */
   const seedDemoHistory = useCallback((mode: SeedMode) => {
     const current = stateRef.current;
-    if (!current.child) return;
+    const active = current.profiles.find(p => p.child_id === current.activeProfileId);
+    if (!active) return;
+
     const sessions = seedSessions({
-      childId: current.child.child_id,
-      dobIso: current.child.dob_iso,
+      childId: active.child_id,
+      dobIso: active.dob_iso,
       mode,
     });
-    const evaluation = evaluateFlag(current.child.child_id, sessions, []);
+    const others = current.sessions.filter(s => s.child_id !== active.child_id);
+    const otherFlags = current.flags.filter(f => f.child_id !== active.child_id);
+    const evaluation = evaluateFlag(active.child_id, sessions, []);
+
     dispatch({
       type: 'replace',
       state: {
         schema_version: SCHEMA_VERSION,
-        child: current.child,
+        account: current.account,
         consent: current.consent,
-        sessions,
-        flags: evaluation.flag ? [evaluation.flag] : [],
+        profiles: current.profiles,
+        activeProfileId: current.activeProfileId,
+        sessions: [...others, ...sessions],
+        flags: evaluation.flag ? [...otherFlags, evaluation.flag] : otherFlags,
         settings: current.settings,
         clusterPatients: current.clusterPatients,
       },
@@ -231,10 +355,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'reset' });
   }, []);
 
+  const child = useMemo(
+    () => state.profiles.find(p => p.child_id === state.activeProfileId) ?? null,
+    [state.profiles, state.activeProfileId],
+  );
+
+  const sessions = useMemo(
+    () => (child ? state.sessions.filter(s => s.child_id === child.child_id) : []),
+    [state.sessions, child],
+  );
+
+  const flags = useMemo(
+    () => (child ? state.flags.filter(f => f.child_id === child.child_id) : []),
+    [state.flags, child],
+  );
+
+  const sessionsFor = useCallback(
+    (childId: string) => stateRef.current.sessions.filter(s => s.child_id === childId),
+    [],
+  );
+  const flagsFor = useCallback(
+    (childId: string) => stateRef.current.flags.filter(f => f.child_id === childId),
+    [],
+  );
+
   const value = useMemo<AppApi>(
     () => ({
       state,
-      onboard,
+      createAccount,
+      setPlan,
+      profiles: state.profiles,
+      child,
+      addProfile,
+      updateProfile,
+      removeProfile,
+      selectProfile,
+      canAddProfile: state.profiles.length < planFor(state.account).profileLimit,
+      suggestAvatar,
+      sessions,
+      flags,
+      sessionsFor,
+      flagsFor,
       completeSession,
       patchFlag,
       bookAppointment,
@@ -246,7 +407,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       state,
-      onboard,
+      createAccount,
+      setPlan,
+      child,
+      addProfile,
+      updateProfile,
+      removeProfile,
+      selectProfile,
+      suggestAvatar,
+      sessions,
+      flags,
+      sessionsFor,
+      flagsFor,
       completeSession,
       patchFlag,
       bookAppointment,
@@ -267,4 +439,4 @@ export function useApp(): AppApi {
   return ctx;
 }
 
-export { DEFAULT_SETTINGS };
+export { DEFAULT_SETTINGS, PLANS };

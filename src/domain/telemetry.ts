@@ -55,6 +55,23 @@ export type RoundExtra = {
   swap_count?: number;
   /** Sequence game: did the child re-order after hearing audio feedback? */
   reordered_after_audio?: boolean;
+  /**
+   * Wait-and-tap game: whether this trial wanted a response or wanted the child
+   * to hold back. Commission and omission errors are read off this plus
+   * `first_response_timestamp`, which is why neither needs its own column.
+   */
+  trial_type?: 'respond' | 'withhold';
+  /** Line tracing: mean distance from the path, as a share of the path's own scale. */
+  trace_deviation_pct?: number;
+  /** Line tracing: how many times the finger left the screen mid-path. */
+  trace_lifts?: number;
+  /** Line tracing: share of the path actually covered. */
+  trace_completion?: number;
+  /** Quantity game: 1 = obvious difference, 3 = the two groups are close. */
+  ratio_tier?: number;
+  /** Quantity game: the two group sizes, for the clinician's replay. */
+  quantities?: [number, number];
+
   /** Every tap in the round, for the clinician's replay. No media, just taps. */
   taps?: TapMark[];
 };
@@ -81,6 +98,12 @@ export type SessionRecord = {
   rounds: RoundEvent[];
   /** True when the child walked away mid-session. Excluded from flag maths. */
   abandoned: boolean;
+  /**
+   * True when a parent chose to play a different age group's games than this
+   * child's date of birth implies. Also excluded from flag maths: comparing
+   * these timings against the child's own age band would be meaningless.
+   */
+  off_band?: boolean;
 };
 
 export type RoundDraftInput = {

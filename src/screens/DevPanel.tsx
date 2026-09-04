@@ -28,25 +28,25 @@ import { relativeDay } from '../lib/time';
  * self-checks that enforce the spec's language rule.
  */
 export function DevPanel() {
-  const { state, setSettings, seedDemoHistory, resetAll } = useApp();
+  const { state, child, sessions, flags, setSettings, seedDemoHistory, resetAll } = useApp();
   const nav = useNav();
   const [showJson, setShowJson] = useState(false);
 
   const evaluation = useMemo(
     () =>
-      state.child
-        ? evaluateFlag(state.child.child_id, state.sessions, state.flags)
+      child
+        ? evaluateFlag(child.child_id, sessions, flags)
         : null,
-    [state.child, state.sessions, state.flags],
+    [child, sessions, flags],
   );
 
   const checks = useMemo(() => runSelfTests(), []);
   const failures = checks.filter(c => !c.passed);
 
   const lastRound = useMemo(() => {
-    const last = state.sessions[state.sessions.length - 1];
+    const last = sessions[sessions.length - 1];
     return last?.rounds[last.rounds.length - 1] ?? null;
-  }, [state.sessions]);
+  }, [sessions]);
 
   return (
     <Screen backLabel="progress" title="Settings & audit">
@@ -221,12 +221,12 @@ export function DevPanel() {
 
       <Card label="Stored data">
         <Txt variant="small" tone="soft">
-          {state.sessions.length} sessions · {state.sessions.reduce((n, s) => n + s.rounds.length, 0)}{' '}
-          rounds · {state.flags.length} flags. All of it on this device only.
+          {sessions.length} sessions · {sessions.reduce((n, s) => n + s.rounds.length, 0)}{' '}
+          rounds · {flags.length} flags. All of it on this device only.
         </Txt>
-        {state.sessions.length > 0 ? (
+        {sessions.length > 0 ? (
           <Txt variant="micro" tone="faint" style={styles.mtSm}>
-            Most recent: {relativeDay(state.sessions[state.sessions.length - 1].ended_at)}
+            Most recent: {relativeDay(sessions[sessions.length - 1].ended_at)}
           </Txt>
         ) : null}
 

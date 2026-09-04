@@ -1,6 +1,6 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
-import { color, font } from '../theme/tokens';
+import { StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
+import { color, family, font } from '../theme/tokens';
 
 export type TxtVariant =
   | 'display'
@@ -9,69 +9,99 @@ export type TxtVariant =
   | 'body'
   | 'bodyStrong'
   | 'small'
+  | 'smallStrong'
   | 'micro'
-  | 'label';
+  | 'label'
+  | 'numeric';
+
+export type TxtTone =
+  | 'ink'
+  | 'soft'
+  | 'faint'
+  | 'brand'
+  | 'notice'
+  | 'positive'
+  | 'chalk'
+  | 'chalkSoft'
+  | 'chalkFaint'
+  | 'noticeOnSlate'
+  | 'inverse';
 
 type Props = TextProps & {
   variant?: TxtVariant;
-  tone?: 'ink' | 'soft' | 'faint' | 'brand' | 'notice' | 'inverse' | 'clinic' | 'positive';
+  tone?: TxtTone;
   center?: boolean;
 };
 
 /**
- * Single text component so type scale and tone stay consistent across three
- * very different audiences. `label` is the small tracked caps used for section
- * headers throughout the parent and clinician views.
+ * The single text component. It owns the family-per-weight mapping, because
+ * with custom fonts loaded `fontWeight` does nothing and picking the wrong
+ * family is the easiest way to end up with a page in three different faces.
  */
 export function Txt({ variant = 'body', tone = 'ink', center, style, ...rest }: Props) {
   return (
     <Text
       {...rest}
-      style={[
-        styles.base,
-        variants[variant],
-        { color: tones[tone] },
-        center && styles.center,
-        style,
-      ]}
+      style={[styles.base, variants[variant], { color: tones[tone] }, center && styles.center, style]}
     />
   );
 }
 
-const tones: Record<NonNullable<Props['tone']>, string> = {
+const tones: Record<TxtTone, string> = {
   ink: color.ink,
   soft: color.inkSoft,
   faint: color.inkFaint,
-  brand: color.brand,
+  brand: color.brandDeep,
   notice: color.notice,
-  inverse: '#FFFFFF',
-  clinic: color.clinic,
   positive: color.positive,
+  chalk: color.chalk,
+  chalkSoft: color.chalkSoft,
+  chalkFaint: color.chalkFaint,
+  noticeOnSlate: color.noticeOnSlate,
+  inverse: '#FFFFFF',
 };
 
-const systemSerifless = Platform.select({ ios: undefined, default: undefined });
-
 const styles = StyleSheet.create({
-  base: {
-    fontFamily: systemSerifless,
-    includeFontPadding: false,
-  },
+  base: { includeFontPadding: false },
   center: { textAlign: 'center' },
 });
 
 const variants: Record<TxtVariant, TextStyle> = {
-  display: { fontSize: font.display, fontWeight: '800', letterSpacing: -0.7, lineHeight: font.display * 1.16 },
-  title: { fontSize: font.title, fontWeight: '700', letterSpacing: -0.4, lineHeight: font.title * 1.24 },
-  heading: { fontSize: font.heading, fontWeight: '700', letterSpacing: -0.2, lineHeight: font.heading * 1.32 },
-  body: { fontSize: font.body, fontWeight: '400', lineHeight: font.body * 1.52 },
-  bodyStrong: { fontSize: font.body, fontWeight: '600', lineHeight: font.body * 1.5 },
-  small: { fontSize: font.small, fontWeight: '400', lineHeight: font.small * 1.5 },
-  micro: { fontSize: font.micro, fontWeight: '500', lineHeight: font.micro * 1.45 },
+  display: {
+    fontFamily: family.display,
+    fontSize: font.display,
+    letterSpacing: -0.6,
+    lineHeight: font.display * 1.1,
+  },
+  title: {
+    fontFamily: family.displayBold,
+    fontSize: font.title,
+    letterSpacing: -0.3,
+    lineHeight: font.title * 1.2,
+  },
+  heading: {
+    fontFamily: family.bold,
+    fontSize: font.heading,
+    letterSpacing: -0.1,
+    lineHeight: font.heading * 1.34,
+  },
+  body: { fontFamily: family.body, fontSize: font.body, lineHeight: font.body * 1.54 },
+  bodyStrong: { fontFamily: family.semibold, fontSize: font.body, lineHeight: font.body * 1.5 },
+  small: { fontFamily: family.body, fontSize: font.small, lineHeight: font.small * 1.52 },
+  smallStrong: { fontFamily: family.semibold, fontSize: font.small, lineHeight: font.small * 1.5 },
+  micro: { fontFamily: family.medium, fontSize: font.micro, lineHeight: font.micro * 1.45 },
   label: {
+    fontFamily: family.bold,
     fontSize: font.micro,
-    fontWeight: '700',
-    letterSpacing: 1.1,
+    letterSpacing: 1.3,
     textTransform: 'uppercase',
     lineHeight: font.micro * 1.4,
+  },
+  /** Tabular figures for the clinician's tables. */
+  numeric: {
+    fontFamily: family.medium,
+    fontSize: font.small,
+    lineHeight: font.small * 1.5,
+    fontVariant: ['tabular-nums'],
   },
 };

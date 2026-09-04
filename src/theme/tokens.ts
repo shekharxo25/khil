@@ -1,64 +1,93 @@
 /**
- * Khil design tokens.
+ * Khil design tokens — "Slate & Kite".
  *
- * Three audiences share one system:
- *  - parent  : warm paper, calm, plain-language. Never alarm styling (wireframe 03, note 2).
- *  - child   : high-contrast, oversized targets, playful. No text is load-bearing (wireframe 02, note 1).
- *  - clinician: cooler, denser, tablet-friendly (wireframe 05/06).
+ * The product is Indian, its first cluster is Ahmedabad (PIN 380015), and its
+ * users are children who are not yet reading. Two materials from that world
+ * carry the whole system:
  *
- * "Khil" (खिल) — to bloom. The bloom mark and the petal palette come from that.
+ *   Slate — the school patti every Indian child learns on. It grounds the
+ *   account shell and the child's play surface. Saturated targets read harder
+ *   on a dark field than on pastel, which matters when the thing being measured
+ *   is how fast a child finds the odd one out.
+ *
+ *   Kite paper — Uttarayan, which is Ahmedabad's festival. Thin, translucent,
+ *   violently bright: magenta, parrot green, cobalt, saffron. These are the
+ *   play colours and the profile colours.
+ *
+ * Parent and clinician surfaces are chalk-washed paper: cool, quiet, and
+ * deliberately not the warm cream this kind of app defaults to.
+ *
+ * One decision worth stating outright. The flag tone is INDIGO, not amber and
+ * not red. Wireframe 03 note 2 requires the flag to never read as alarm, and
+ * every warm notice colour fights that requirement. Blue reads as "look at
+ * this", not "something is wrong", which is exactly the register a screening
+ * aid needs when it is right only some of the time.
  */
 
 export const color = {
-  // Surfaces
-  paper: '#FBF7F1',
-  paperDeep: '#F3ECE1',
-  surface: '#FFFFFF',
-  surfaceSunk: '#F6F1E9',
+  // ── Slate ground: account shell, profile gate, child play ────────────────
+  slate: '#132229',
+  slateDeep: '#0B141A',
+  slateRaise: '#1D3542',
+  slateLine: '#2C4857',
 
-  // Ink
-  ink: '#1B2420',
-  inkSoft: '#4B5854',
-  inkFaint: '#8A9691',
-  hairline: '#E4DDD1',
-  hairlineStrong: '#D3C9B8',
+  // Type on slate
+  chalk: '#F5F7F3',
+  chalkSoft: '#B4C6C2',
+  chalkFaint: '#7C9199',
 
-  // Brand — deep leaf green
-  brand: '#2E6B58',
-  brandDeep: '#1F4C3F',
-  brandSoft: '#DCEBE4',
-  brandTint: '#EFF6F2',
+  // ── Chalk paper: parent + clinician ──────────────────────────────────────
+  paper: '#E9EEE8',
+  surface: '#F6F8F4',
+  surfaceSunk: '#DFE7DE',
+  hairline: '#C9D4C9',
+  hairlineStrong: '#AFBFB0',
 
-  // Marigold accent (progress, celebration)
-  accent: '#E39A2E',
-  accentSoft: '#FBEBD1',
+  // Type on paper
+  ink: '#10201E',
+  inkSoft: '#475A55',
+  inkFaint: '#7A8B84',
 
-  // Notice — the flag tone. Deliberately sand, never red. (wireframe 03, note 2)
-  notice: '#8A5A20',
-  noticeSurface: '#FCF3E3',
-  noticeEdge: '#EBD6AE',
-
-  // Child palette — saturated but soft, colour-blind-legible pairings only
-  play: {
-    sky: '#4C9BE8',
-    grape: '#8A6BD1',
-    coral: '#EF7A6A',
-    leaf: '#48A97C',
-    sun: '#F0B537',
-    plum: '#B45B8F',
-    slate: '#5C7A8A',
+  // ── Kite paper: play + profile colours ───────────────────────────────────
+  kite: {
+    magenta: '#D8256B',
+    parrot: '#1F9E6B',
+    cobalt: '#2B5BD7',
+    saffron: '#EFA00B',
+    violet: '#7A4BD4',
+    teal: '#0E93A8',
+    coral: '#EF5D48',
+    lime: '#7FB223',
   },
-  childBgTop: '#EAF3FB',
-  childBgBottom: '#F7F0E4',
 
-  // Clinician
-  clinic: '#1F3D4F',
-  clinicSurface: '#F4F7F9',
-  clinicEdge: '#DCE5EB',
+  // ── Notice: the flag tone. Indigo on purpose — see the note above. ───────
+  notice: '#27408B',
+  noticeSurface: '#E7ECFA',
+  noticeEdge: '#C3D0F1',
+  noticeOnSlate: '#93AEF5',
 
-  positive: '#2E7D5B',
-  positiveSoft: '#E3F1EA',
+  positive: '#1B7A55',
+  positiveSoft: '#DDEFE4',
+
+  brand: '#1F9E6B',
+  brandDeep: '#136B48',
+  brandSoft: '#D5EDE0',
+  brandTint: '#E6F3EC',
 } as const;
+
+/** Ten skill areas, ten petals, ten kite colours. Order matches DOMAIN_IDS. */
+export const PETAL_COLORS = [
+  color.kite.cobalt,
+  color.kite.teal,
+  color.kite.magenta,
+  color.kite.violet,
+  color.kite.coral,
+  color.kite.saffron,
+  color.kite.parrot,
+  color.kite.lime,
+  '#C2417F',
+  '#3C7BD4',
+] as const;
 
 export const space = {
   xs: 4,
@@ -78,10 +107,27 @@ export const radius = {
   pill: 999,
 } as const;
 
+/**
+ * Type. Both faces are Ek Type (Mumbai) — a foundry that draws Latin and
+ * Devanagari together. For a product built for Indian families that is a
+ * reason, not a coincidence.
+ *
+ * Baloo 2 is the display face: rounded, high x-height, warm without being
+ * cutesy. Used only for headlines and the wordmark.
+ * Anek Latin carries everything else, including the clinician's tables.
+ */
+export const family = {
+  display: 'Baloo2_800ExtraBold',
+  displayBold: 'Baloo2_700Bold',
+  body: 'AnekLatin_400Regular',
+  medium: 'AnekLatin_500Medium',
+  semibold: 'AnekLatin_600SemiBold',
+  bold: 'AnekLatin_700Bold',
+} as const;
+
 export const font = {
-  /** Display sizes are used sparingly — one per screen at most. */
-  display: 30,
-  title: 23,
+  display: 34,
+  title: 24,
   heading: 18,
   body: 15.5,
   small: 13.5,
@@ -90,20 +136,20 @@ export const font = {
 
 export const shadow = {
   card: {
-    shadowColor: '#3A2E1C',
-    shadowOpacity: 0.07,
+    shadowColor: '#0B141A',
+    shadowOpacity: 0.06,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
   },
   lifted: {
-    shadowColor: '#3A2E1C',
-    shadowOpacity: 0.14,
+    shadowColor: '#0B141A',
+    shadowOpacity: 0.16,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
     elevation: 6,
   },
 } as const;
 
-/** Minimum tap target for ages 2–6 (wireframe 02, note 2: no fine-motor precision below age 4). */
+/** Minimum tap target for ages 2–6 (wireframe 02, note 2). */
 export const HIT_TARGET_MIN = 88;

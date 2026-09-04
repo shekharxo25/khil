@@ -40,6 +40,10 @@ const ROUND_MS: Record<GameId, number> = {
   language: 11_000,
   beat: 15_000,
   sequence: 20_000,
+  inhibit: 3_200,
+  rhyme: 13_000,
+  trace: 14_000,
+  quantity: 7_000,
 };
 
 const INTRO_MS = 6_000;

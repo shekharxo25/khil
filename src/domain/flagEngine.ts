@@ -155,7 +155,7 @@ export function evaluateFlag(
   now: number = Date.now(),
 ): FlagEvaluation {
   const childSessions = sessions
-    .filter(s => s.child_id === childId && !s.abandoned)
+    .filter(s => s.child_id === childId && !s.abandoned && !s.off_band)
     .sort((a, b) => a.ended_at - b.ended_at);
   const windowSessions = childSessions.filter(s => withinWindow(s, now));
   const windowSignals = signalsForSessions(windowSessions);

@@ -186,9 +186,15 @@ export function seedSessions(options: SeedOptions): SessionRecord[] {
   const rng = createRng(seedFromString(`${options.childId}:${options.mode}`));
 
   const daysAgo = [11, 9, 7, 5, 3, 1];
+  // Indices 2–5 (offset ≤ 5, the days that carry the cluster) are pattern and
+  // language pairings on purpose — that is the exact shape the flag-engine
+  // self-test and the README's demo walkthrough are written against. Indices
+  // 0–1 are free to use, and are the four newer games instead of repeating
+  // the older pair — which is what gets a typical week to touch all ten
+  // skill areas rather than just the original four games' six.
   const rotation: GameId[][] = [
-    ['pattern', 'language'],
-    ['beat', 'sequence'],
+    ['inhibit', 'trace'],
+    ['rhyme', 'quantity'],
     ['language', 'pattern'],
     ['pattern', 'beat'],
     ['language', 'sequence'],

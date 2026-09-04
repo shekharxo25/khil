@@ -27,12 +27,12 @@ import { formatDate } from '../lib/time';
  * comparison range is a prototype placeholder rather than a clinical threshold.
  */
 export function FlagDetail() {
-  const { state, bookAppointment, snoozeFlag } = useApp();
+  const { state, child, flags, bookAppointment, snoozeFlag } = useApp();
   const nav = useNav();
   const { flagId } = useParams<'flagDetail'>();
 
-  const flag = state.flags.find(f => f.id === flagId);
-  const specialist = state.child ? clusterByPin(state.child.pin)?.specialist : undefined;
+  const flag = flags.find(f => f.id === flagId);
+  const specialist = state.account ? clusterByPin(state.account.pin)?.specialist : undefined;
 
   if (!flag) {
     return (

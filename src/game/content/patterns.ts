@@ -30,12 +30,12 @@ export type PatternRound = {
 };
 
 const PALETTE = [
-  color.play.sky,
-  color.play.coral,
-  color.play.leaf,
-  color.play.grape,
-  color.play.sun,
-  color.play.plum,
+  color.kite.cobalt,
+  color.kite.coral,
+  color.kite.parrot,
+  color.kite.violet,
+  color.kite.saffron,
+  color.kite.magenta,
 ];
 
 const SHAPES: ShapeKind[] = ['circle', 'square', 'triangle', 'diamond', 'rounded'];

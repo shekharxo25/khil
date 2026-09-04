@@ -6,7 +6,7 @@ import { Txt } from './Txt';
 /** Animated progress track. Child-facing copy never depends on reading it. */
 export function ProgressBar({
   value,
-  tint = color.accent,
+  tint = color.kite.saffron,
   height = 10,
 }: {
   /** 0…1 */
@@ -94,7 +94,7 @@ const CHIP_TONES = {
   brand: { bg: color.brandSoft, fg: color.brandDeep, border: color.brandSoft },
   notice: { bg: color.noticeSurface, fg: color.notice, border: color.noticeEdge },
   positive: { bg: color.positiveSoft, fg: color.positive, border: color.positiveSoft },
-  clinic: { bg: color.clinicSurface, fg: color.clinic, border: color.clinicEdge },
+  clinic: { bg: color.surfaceSunk, fg: color.slate, border: color.hairlineStrong },
 } as const;
 
 export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
@@ -127,45 +127,10 @@ export function Row({
   );
 }
 
-/**
- * The Khil mark — खिल, "to bloom". Five petals around a centre, drawn with
- * plain views so it scales without an asset pipeline.
- */
-export function BloomMark({ size = 34, tint = color.brand }: { size?: number; tint?: string }) {
-  const petal = size * 0.4;
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {[0, 72, 144, 216, 288].map(angle => (
-        <View
-          key={angle}
-          style={{
-            position: 'absolute',
-            width: petal,
-            height: petal * 1.5,
-            borderRadius: petal,
-            backgroundColor: tint,
-            opacity: 0.34,
-            transform: [
-              { rotate: `${angle}deg` },
-              { translateY: -size * 0.21 },
-            ],
-          }}
-        />
-      ))}
-      <View
-        style={{
-          width: size * 0.3,
-          height: size * 0.3,
-          borderRadius: size * 0.15,
-          backgroundColor: tint,
-        }}
-      />
-    </View>
-  );
-}
+export { BloomMark } from './Bloom';
 
 const styles = StyleSheet.create({
-  track: { backgroundColor: color.paperDeep, overflow: 'hidden', width: '100%' },
+  track: { backgroundColor: color.surfaceSunk, overflow: 'hidden', width: '100%' },
   fill: { height: '100%' },
   stat: { flex: 1, gap: 2 },
   statCaption: { maxWidth: 110 },

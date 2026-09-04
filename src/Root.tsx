@@ -5,11 +5,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './store/AppStore';
 import { NavigationProvider, useNav, type RouteName } from './nav/navigation';
 import { color } from './theme/tokens';
-import { BloomMark } from './ui/Bits';
+import { useAppFonts } from './theme/fonts';
+import { BloomMark } from './ui/Bloom';
 import { Txt } from './ui/Txt';
 import { prepareAudio } from './lib/sounds';
 import { Onboarding } from './screens/Onboarding';
+import { ProfileGate } from './screens/ProfileGate';
+import { ProfileEditor } from './screens/ProfileEditor';
+import { Plans } from './screens/Plans';
 import { ParentDashboard } from './screens/ParentDashboard';
+import { GamePicker } from './screens/GamePicker';
 import { SessionIntro } from './screens/SessionIntro';
 import { SessionRunner } from './screens/SessionRunner';
 import { SessionComplete } from './screens/SessionComplete';
@@ -21,7 +26,11 @@ import { DevPanel } from './screens/DevPanel';
 
 const SCREENS: Record<RouteName, React.ComponentType> = {
   onboarding: Onboarding,
+  profileGate: ProfileGate,
+  profileEditor: ProfileEditor,
+  plans: Plans,
   parentHome: ParentDashboard,
+  gamePicker: GamePicker,
   sessionIntro: SessionIntro,
   session: SessionRunner,
   sessionComplete: SessionComplete,
@@ -40,6 +49,18 @@ function Router() {
   return <Active key={current.name} />;
 }
 
+function Splash() {
+  return (
+    <View style={styles.splash}>
+      <BloomMark size={52} tint={color.kite.parrot} />
+      <Txt variant="title" tone="chalk" style={styles.splashTitle}>
+        Khil
+      </Txt>
+      <ActivityIndicator color={color.kite.parrot} />
+    </View>
+  );
+}
+
 function Gate() {
   const { state } = useApp();
 
@@ -47,19 +68,18 @@ function Gate() {
     void prepareAudio();
   }, []);
 
-  if (!state.hydrated) {
-    return (
-      <View style={styles.splash}>
-        <BloomMark size={52} />
-        <Txt variant="title" style={styles.splashTitle}>
-          Khil
-        </Txt>
-        <ActivityIndicator color={color.brand} />
-      </View>
-    );
-  }
+  if (!state.hydrated) return <Splash />;
 
-  const initial = state.child && state.consent ? 'parentHome' : 'onboarding';
+  // Three thresholds, in order: an account (PIN + consent), at least one
+  // child profile, and a profile actually selected. Each one routes to the
+  // screen that fixes exactly what is missing.
+  const initial: RouteName = !state.account || !state.consent
+    ? 'onboarding'
+    : state.profiles.length === 0
+      ? 'profileEditor'
+      : state.activeProfileId
+        ? 'parentHome'
+        : 'profileGate';
 
   return (
     <NavigationProvider initial={{ name: initial, params: undefined }}>
@@ -69,11 +89,13 @@ function Gate() {
 }
 
 export function Root() {
+  const fontsReady = useAppFonts();
+
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <StatusBar style="dark" />
-        <Gate />
+        <StatusBar style="light" />
+        {fontsReady ? <Gate /> : <Splash />}
       </AppProvider>
     </SafeAreaProvider>
   );
@@ -85,7 +107,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 14,
-    backgroundColor: color.paper,
+    backgroundColor: color.slate,
   },
   splashTitle: { letterSpacing: 1 },
 });

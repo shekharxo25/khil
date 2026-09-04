@@ -21,53 +21,71 @@ import { ageInYears, relativeDay } from '../lib/time';
  *  3. A simple capacity indicator, so an over- or under-loaded cluster is visible.
  */
 export function PediatricianList() {
-  const { state } = useApp();
+  const { state, profiles, flagsFor } = useApp();
   const nav = useNav();
 
-  const pin = state.child?.pin ?? '380015';
+  const pin = state.account?.pin ?? '380015';
   const cluster = clusterByPin(pin);
   const specialist = cluster?.specialist;
 
-  const openFlag = state.flags.find(
-    f => f.status === 'open' || f.status === 'booked' || f.status === 'snoozed',
+  // The whole household shares one specialist, so the portal shows every
+  // child on the account — not just whoever is currently the active profile.
+  const householdRows = useMemo(
+    () =>
+      profiles.map(profile => {
+        const childFlags = flagsFor(profile.child_id);
+        const openFlag = childFlags.find(
+          f => f.status === 'open' || f.status === 'booked' || f.status === 'snoozed',
+        );
+        const closedFlags = childFlags.filter(f => f.status.startsWith('closed'));
+        return {
+          id: profile.child_id,
+          name: profile.name,
+          age: ageInYears(profile.dob_iso),
+          flagged: !!openFlag,
+          note: openFlag
+            ? openFlag.status === 'booked'
+              ? 'new flag · consultation requested'
+              : 'new flag · replay attached'
+            : closedFlags.length > 0
+              ? 'reviewed · no open flags'
+              : 'no flags this month',
+          flagId: openFlag?.id,
+          closedFlags,
+        };
+      }),
+    [profiles, flagsFor],
   );
-  const closedFlags = state.flags.filter(f => f.status.startsWith('closed'));
 
-  const mappedCount = (specialist?.familiesMapped ?? 0) + (state.child ? 1 : 0);
+  const openFlagCount = householdRows.filter(r => r.flagged).length;
+  const allClosedFlags = householdRows.flatMap(r =>
+    r.closedFlags.map(flag => ({ flag, childName: r.name })),
+  );
+  const mappedCount = (specialist?.familiesMapped ?? 0) + profiles.length;
 
   const rows = useMemo(() => {
-    const own = state.child
-      ? [
-          {
-            id: state.child.child_id,
-            name: state.child.name,
-            age: ageInYears(state.child.dob_iso),
-            flagged: !!openFlag,
-            note: openFlag
-              ? openFlag.status === 'booked'
-                ? 'new flag · consultation requested'
-                : 'new flag · replay attached'
-              : closedFlags.length > 0
-                ? 'reviewed · no open flags'
-                : 'no flags this month',
-            flagId: openFlag?.id,
-          },
-        ]
-      : [];
-    const others = state.clusterPatients.map(p => ({
-      id: p.id,
-      name: p.name,
-      age: p.age_years,
-      flagged: false,
-      note: p.note,
-      flagId: undefined as string | undefined,
-    }));
-    return [...own, ...others];
-  }, [state.child, state.clusterPatients, openFlag, closedFlags.length]);
+    // The fictional roster is a static, name-based demo fixture, and a real
+    // parent is free to pick any name for their child — including one that
+    // happens to match a fictional patient. Filtering the collision out here,
+    // rather than trying to pick "safe" fictional names, is the fix that
+    // still holds no matter what a parent names their child.
+    const householdNames = new Set(householdRows.map(r => r.name.trim().toLowerCase()));
+    const others = state.clusterPatients
+      .filter(p => !householdNames.has(p.name.trim().toLowerCase()))
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        age: p.age_years,
+        flagged: false,
+        note: p.note,
+        flagId: undefined as string | undefined,
+      }));
+    return [...householdRows, ...others];
+  }, [householdRows, state.clusterPatients]);
 
   return (
     <Screen
-      background={color.clinicSurface}
+      background={color.paper}
       backLabel="parent view"
       eyebrow="Specialist portal"
       title={`Mapped patients — PIN ${pin}`}
@@ -75,7 +93,7 @@ export function PediatricianList() {
       <Card tone="clinic">
         <Row style={styles.between}>
           <View>
-            <Txt variant="bodyStrong" tone="clinic">
+            <Txt variant="bodyStrong" tone="ink">
               {specialist?.name ?? 'Unassigned'}
             </Txt>
             <Txt variant="small" tone="soft">
@@ -83,8 +101,8 @@ export function PediatricianList() {
             </Txt>
           </View>
           <Chip
-            label={openFlag ? '1 open flag' : 'no open flags'}
-            tone={openFlag ? 'notice' : 'positive'}
+            label={openFlagCount > 0 ? `${openFlagCount} open flag${openFlagCount === 1 ? '' : 's'}` : 'no open flags'}
+            tone={openFlagCount > 0 ? 'notice' : 'positive'}
           />
         </Row>
         <Divider style={styles.divider} />
@@ -131,7 +149,7 @@ export function PediatricianList() {
 
       <Card tone="sunk" label="Notes">
         <Txt variant="bodyStrong">
-          {mappedCount} families mapped · {openFlag ? 1 : 0} open flag
+          {mappedCount} families mapped · {openFlagCount} open flag{openFlagCount === 1 ? '' : 's'}
         </Txt>
         <Txt variant="small" tone="soft" style={styles.mtXs}>
           Capacity indicator. A cluster far above or below the others is a signal for Khil’s
@@ -139,12 +157,12 @@ export function PediatricianList() {
         </Txt>
       </Card>
 
-      {closedFlags.length > 0 ? (
+      {allClosedFlags.length > 0 ? (
         <Card label="Recently reviewed">
-          {closedFlags.map(flag => (
+          {allClosedFlags.map(({ flag, childName }) => (
             <Row key={flag.id} style={styles.between}>
               <Txt variant="small" tone="soft">
-                {state.child?.name} · {relativeDay(flag.outcome?.marked_at ?? flag.created_at)}
+                {childName} · {relativeDay(flag.outcome?.marked_at ?? flag.created_at)}
               </Txt>
               <Chip
                 label={flag.outcome?.outcome === 'needs_visit' ? 'needs visit' : 'not concerning'}

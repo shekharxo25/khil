@@ -21,12 +21,12 @@ import { median } from '../domain/telemetry';
  * nothing red, no score.
  */
 export function SessionComplete() {
-  const { state } = useApp();
+  const { state, child, sessions, flags } = useApp();
   const nav = useNav();
   const params = useParams<'sessionComplete'>();
 
-  const session = state.sessions[state.sessions.length - 1];
-  const flag = params?.flagId ? state.flags.find(f => f.id === params.flagId) : undefined;
+  const session = sessions[sessions.length - 1];
+  const flag = params?.flagId ? flags.find(f => f.id === params.flagId) : undefined;
 
   useEffect(() => {
     playSound('celebrate');
@@ -72,7 +72,7 @@ export function SessionComplete() {
           Nice playing
         </Txt>
         <Txt variant="body" tone="soft" center>
-          {state.child?.name ?? 'Your child'} finished today’s session.
+          {child?.name ?? 'Your child'} finished today’s session.
         </Txt>
       </View>
 

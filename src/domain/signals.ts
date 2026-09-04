@@ -20,6 +20,10 @@ export const SIGNAL_IDS = [
   'repeated_selection',
   'low_match_rate',
   'uneven_timing',
+  'impulsive_responses',
+  'missed_prompts',
+  'unsteady_line',
+  'close_quantity_calls',
 ] as const;
 
 export type SignalId = (typeof SIGNAL_IDS)[number];
@@ -80,6 +84,30 @@ export const SIGNAL_META: Record<SignalId, SignalMeta> = {
     clinicalClause: 'increased inter-tap interval variability when copying rhythm',
     measure: 'How evenly spaced the taps were when copying a beat',
   },
+  impulsive_responses: {
+    id: 'impulsive_responses',
+    clause: 'more taps on things the game asked them to leave alone',
+    clinicalClause: 'elevated commission errors on withhold trials',
+    measure: 'How often a tap landed on something meant to be left alone',
+  },
+  missed_prompts: {
+    id: 'missed_prompts',
+    clause: 'more prompts going by without a response',
+    clinicalClause: 'elevated omission errors on respond trials',
+    measure: 'How often a prompt passed with no response at all',
+  },
+  unsteady_line: {
+    id: 'unsteady_line',
+    clause: 'a less steady hand when following a line',
+    clinicalClause: 'increased deviation from the target path when tracing',
+    measure: 'How far the traced line drifted from the path it was following',
+  },
+  close_quantity_calls: {
+    id: 'close_quantity_calls',
+    clause: 'more difficulty picking the larger group when the two were close in size',
+    clinicalClause: 'reduced accuracy on near-ratio non-symbolic quantity comparisons',
+    measure: 'Picking the larger group when the two groups were close in size',
+  },
 };
 
 /** Below this, a value outside the band is treated as ordinary day-to-day variation. */
@@ -92,6 +120,14 @@ type MetricProbe = {
   signal: SignalId;
   metric: MetricId;
   compute: (rounds: RoundEvent[]) => number | null;
+  /**
+   * Attach the signal to this domain instead of the game's primary domain,
+   * when the game actually lists it. Switch cost belongs to "routine & change"
+   * wherever a game measures it, not to whatever that game is mainly about.
+   */
+  domain?: DomainId;
+  /** Games where this probe would double-count a more precise measure. */
+  skipGames?: readonly GameId[];
 };
 
 /**
@@ -155,6 +191,7 @@ const PROBES: MetricProbe[] = [
     signal: 'slow_task_switch',
     metric: 'taskSwitchCostMs',
     compute: switchCost,
+    domain: 'routine',
   },
   {
     signal: 'repeated_selection',
@@ -171,6 +208,51 @@ const PROBES: MetricProbe[] = [
       rounds.length === 0
         ? null
         : rounds.filter(r => r.response_correct).length / rounds.length,
+    // Both of these games decompose "correct" into something sharper below.
+    // Counting the coarse version too would let one weakness look like two.
+    skipGames: ['inhibit', 'quantity'],
+  },
+  {
+    signal: 'impulsive_responses',
+    metric: 'commissionRate',
+    domain: 'attention',
+    compute: rounds => {
+      const withhold = rounds.filter(r => r.extra.trial_type === 'withhold');
+      if (withhold.length < 3) return null;
+      return withhold.filter(r => r.first_response_timestamp !== null).length / withhold.length;
+    },
+  },
+  {
+    signal: 'missed_prompts',
+    metric: 'omissionRate',
+    domain: 'attention',
+    compute: rounds => {
+      const go = rounds.filter(r => r.extra.trial_type === 'respond');
+      if (go.length < 4) return null;
+      return go.filter(r => r.first_response_timestamp === null).length / go.length;
+    },
+  },
+  {
+    signal: 'unsteady_line',
+    metric: 'traceDeviationPct',
+    domain: 'handControl',
+    compute: rounds => {
+      const values = rounds
+        .map(r => r.extra.trace_deviation_pct)
+        .filter((v): v is number => typeof v === 'number');
+      return values.length === 0 ? null : median(values);
+    },
+  },
+  {
+    signal: 'close_quantity_calls',
+    metric: 'numberSenseAccuracy',
+    domain: 'numbers',
+    compute: rounds => {
+      // Only the near-ratio trials. Getting 1-vs-8 right says nothing.
+      const hard = rounds.filter(r => (r.extra.ratio_tier ?? 0) >= 2);
+      if (hard.length < 3) return null;
+      return hard.filter(r => r.response_correct).length / hard.length;
+    },
   },
   {
     signal: 'uneven_timing',
@@ -186,7 +268,7 @@ const PROBES: MetricProbe[] = [
 
 /** Derive every signal a single completed session produced. */
 export function signalsForSession(session: SessionRecord): Signal[] {
-  if (session.abandoned) return [];
+  if (session.abandoned || session.off_band) return [];
   const band = bandForAge(session.age_months);
   const out: Signal[] = [];
 
@@ -195,6 +277,7 @@ export function signalsForSession(session: SessionRecord): Signal[] {
     if (rounds.length < MIN_ROUNDS_FOR_SIGNAL) continue;
 
     for (const probe of PROBES) {
+      if (probe.skipGames?.includes(gameId)) continue;
       const value = probe.compute(rounds);
       if (value === null) continue;
       const metricBand = band.metrics[probe.metric];
@@ -205,7 +288,10 @@ export function signalsForSession(session: SessionRecord): Signal[] {
         id: probe.signal,
         session_id: session.session_id,
         game_id: gameId,
-        domain: GAMES[gameId].domains[0],
+        domain:
+          probe.domain && GAMES[gameId].domains.includes(probe.domain)
+            ? probe.domain
+            : GAMES[gameId].domains[0],
         observed_at: session.ended_at,
         metric: probe.metric,
         value,
@@ -223,8 +309,17 @@ export function signalsForSessions(sessions: SessionRecord[]): Signal[] {
   return sessions.flatMap(signalsForSession);
 }
 
+const RATE_METRIC_IDS: ReadonlySet<MetricId> = new Set<MetricId>([
+  'accuracy',
+  'repeatErrorRate',
+  'commissionRate',
+  'omissionRate',
+  'traceDeviationPct',
+  'numberSenseAccuracy',
+]);
+
 export function formatSignalValue(signal: Signal): string {
-  if (signal.metric === 'accuracy' || signal.metric === 'repeatErrorRate') {
+  if (RATE_METRIC_IDS.has(signal.metric)) {
     return `${Math.round(signal.value * 100)}%`;
   }
   if (signal.metric === 'taskSwitchCostMs') {

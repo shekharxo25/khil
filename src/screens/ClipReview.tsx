@@ -34,11 +34,11 @@ const TICK_MS = 60;
 const ROUND_TAIL_MS = 900;
 
 export function ClipReview() {
-  const { state, markOutcome } = useApp();
+  const { state, child, sessions, flags, markOutcome } = useApp();
   const nav = useNav();
   const { flagId } = useParams<'clinicReview'>();
 
-  const flag = state.flags.find(f => f.id === flagId);
+  const flag = flags.find(f => f.id === flagId);
   const [playing, setPlaying] = useState(false);
   const [t, setT] = useState(0);
   const [messaged, setMessaged] = useState(false);
@@ -47,7 +47,7 @@ export function ClipReview() {
     if (!flag) return null;
     const strongest = flag.signals.slice().sort((a, b) => b.strength - a.strength)[0];
     if (!strongest) return null;
-    const session = state.sessions.find(s => s.session_id === strongest.session_id);
+    const session = sessions.find(s => s.session_id === strongest.session_id);
     if (!session) return null;
 
     const rounds = session.rounds.filter(r => r.game_id === strongest.game_id);
@@ -76,7 +76,7 @@ export function ClipReview() {
       total: cursor,
       tileCount,
     };
-  }, [flag, state.sessions]);
+  }, [flag, sessions]);
 
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
@@ -98,7 +98,7 @@ export function ClipReview() {
 
   if (!flag || !clip) {
     return (
-      <Screen background={color.clinicSurface} backLabel="patient list" title="Review">
+      <Screen background={color.paper} backLabel="patient list" title="Review">
         <Txt variant="body" tone="soft">
           This flag is no longer available for review.
         </Txt>
@@ -119,11 +119,11 @@ export function ClipReview() {
 
   return (
     <Screen
-      background={color.clinicSurface}
+      background={color.paper}
       backLabel="patient list"
       eyebrow="Specialist portal"
-      title={`${state.child?.name ?? 'Patient'}, age ${
-        state.child ? ageInYears(state.child.dob_iso) : '—'
+      title={`${child?.name ?? 'Patient'}, age ${
+        child ? ageInYears(child.dob_iso) : '—'
       }`}
     >
       {/* Wireframe note 2 — identical language to the parent's report. */}
@@ -150,7 +150,7 @@ export function ClipReview() {
               </Txt>
             </Pressable>
             <View>
-              <Txt variant="bodyStrong" tone="clinic">
+              <Txt variant="bodyStrong" tone="ink">
                 Gameplay replay
               </Txt>
               <Txt variant="micro" tone="faint">
@@ -178,7 +178,7 @@ export function ClipReview() {
                   isLast && styles.tileActive,
                 ]}
               >
-                <Txt variant="micro" tone={tapped.length > 0 ? 'clinic' : 'faint'}>
+                <Txt variant="micro" tone={tapped.length > 0 ? 'ink' : 'faint'}>
                   {index + 1}
                 </Txt>
                 {tapped.length > 1 ? (
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: color.clinic,
+    backgroundColor: color.slate,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: color.clinicEdge,
+    borderColor: color.hairline,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -427,11 +427,11 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: color.clinicEdge,
+    borderColor: color.hairline,
     position: 'relative',
     overflow: 'hidden',
   },
-  segmentActive: { borderColor: color.clinic, borderWidth: 1.6 },
+  segmentActive: { borderColor: color.slate, borderWidth: 1.6 },
   tapDot: {
     position: 'absolute',
     top: 9,
@@ -444,11 +444,11 @@ const styles = StyleSheet.create({
     top: -3,
     width: 2,
     height: 32,
-    backgroundColor: color.clinic,
+    backgroundColor: color.slate,
   },
   tableHead: { paddingBottom: space.sm },
   tableRow: { paddingVertical: space.sm },
-  tableRowActive: { backgroundColor: color.clinicSurface },
+  tableRowActive: { backgroundColor: color.paper },
   colRound: { width: 20 },
   colRule: { width: 34 },
   colNarrow: { width: 26, textAlign: 'center' },
