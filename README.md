@@ -125,10 +125,10 @@ audit panel and in `npm run check`.
 | --- | --- | --- |
 | 01 Onboarding & consent | `screens/Onboarding.tsx` | PIN validated against covered clusters with a waitlist state (2) · consent names the flagged segment, not full recordings (3) · a second, separate checkbox sets diagnostic expectations up front (4) |
 | 02 Child game session | `game/GameFrame.tsx` + eight games | Every instruction spoken (1) · tap/drag only, 88pt minimum targets (2) · session length shown to the parent before hand-off, never to the child (3) · capture is silent in real play (4) |
-| 03 Parent dashboard | `screens/ParentDashboard.tsx` | Progress framing first (1) · calm plain-language flag, indigo not red, no score (2) · one-tap booking to the mapped specialist (3) · "View full report" (4) |
-| 04 Flag detail | `screens/FlagDetail.tsx` | Behavioural description only (1) · dedicated reassurance block before the decision (2) · "Remind me later" is a real option (3) |
-| 05 Specialist portal | `screens/PediatricianList.tsx` | Scope limited to the PIN cluster, now across every child on the account (1) · review action only on active flags (2) · capacity indicator (3) |
-| 06 Clip review | `screens/ClipReview.tsx` | Only the flagged segment is playable (1) · identical non-diagnostic language to the parent's report (2) · outcome tagging feeds the flag-usefulness measure (3) |
+| 03 Parent dashboard | `screens/ParentDashboard.tsx` | Report-card layout, profile strip, progress framing first (1) · calm plain-language flag, indigo not red, no score (2) · one-tap booking to the mapped specialist (3) · "Read more" (4) |
+| 04 Flag detail | `screens/FlagDetail.tsx` | Behavioural description only, no raw data (1) · dedicated reassurance block before the decision (2) · "Remind me later" is a real option (3) |
+| 05 Specialist portal | `screens/PediatricianList.tsx` | Scope limited to the PIN cluster, across every child on the account (1) · needs-review flags sorted to the top (2) · capacity indicator (3) |
+| 06 Clip review | `screens/ClipReview.tsx` | Only the flagged segment is playable (1) · identical non-diagnostic language to the parent's report (2) · three-way outcome tagging feeds the flag-usefulness measure (3) |
 
 Wireframe 01's note 1 — date of birth drives content, no manual age picker — moved with the
 child: it now governs `screens/ProfileEditor.tsx`, since a household's PIN and a child's
@@ -137,8 +137,10 @@ birthday are answered at different moments once an account can hold more than on
 Screens beyond the original set: **Profile gate** (who's playing), **Profile editor**
 (add/edit a child), **Plans** (how many children an account covers), **Game picker** (choose
 today's games and, separately, today's age group), **Session intro** (the parent-side
-hand-off, where the spec's attention-span reassurance belongs), and **Six skill areas**,
-which makes the dashboard's bloom auditable instead of decorative.
+hand-off, where the spec's attention-span reassurance belongs), **Six skill areas** (makes
+the dashboard's bloom auditable instead of decorative), **Report history** (past report-card
+periods, and the PDF/share export), **Messages** (the parent↔specialist thread), and
+**Privacy & data** (what's stored, and deleting it).
 
 ## Games
 
@@ -235,6 +237,126 @@ cream-and-marigold system, which read as templated. See
 
 ---
 
+## Milestone v0.2 — report card, human-in-the-loop, and more
+
+A build-instructions document arrived after the above, framed as "the biggest gap" being a
+real parent dashboard and a real pediatrician dashboard, plus a named list of smaller
+features. Two changes below are corrections to how the earlier build worked, not additions;
+everything else is new surface area.
+
+### The parent dashboard is now a report card, not a data table
+
+`screens/ParentDashboard.tsx` follows the brief's own structure: a profile strip a parent can
+tap to switch children without leaving the screen, an overview strip (the bloom, session
+count, skill areas touched), a **report card** section, the flag (only when relevant), and a
+**past reports** list with an export action. No screen anywhere compares one sibling against
+another — each child's report card is computed from `sessions` already filtered to that
+child, and the UI has no cross-child view to begin with.
+
+The report card (`domain/reportCard.ts`) gives each skill area with enough recent play one of
+three states — **Growing well** / **Right on track** / **Let's keep an eye on this** — never
+a number, never a red/yellow/green light (the brief explicitly rules those out as reading like
+an alarm). Each state carries a one-line plain-language note, and a small bar trend of *how
+much that skill was practiced* over the last six weeks. The trend is deliberately a practice
+count, not a speed or an accuracy line — a chart of raw response numbers would read exactly as
+clinical as the brief is trying to avoid, even rendered as a bar rather than a table.
+
+### The parent never sees the raw measurement — only the pediatrician does
+
+This is the sharpest instruction in the brief, and it reverses something the earlier build
+did on purpose (thinking it built trust; the brief is explicit that it does the opposite):
+
+> "This section should never show the raw behavioral data or 'symptoms' (e.g. never say
+> 'repetitive selections' or 'slow task-switching' — that's for the pediatrician's view only,
+> not the parent's). The parent gets the conclusion in kind language, not the clinical
+> observation itself."
+
+`screens/FlagDetail.tsx` no longer renders the evidence table (observed value / reference
+range / session count) that the earlier build showed a parent. That table still exists — it
+is now pediatrician-only, in `screens/ClipReview.tsx`. Enforcement is two-layered:
+`domain/safeLanguage.ts`'s new `assertParentSafeCopy` bans the technical measure names
+("task-switching", "repeated selections", "latency", "accuracy", "deviation", "commission/
+omission") and any raw millisecond or percentage figure from any string a parent screen
+renders, on top of the existing condition-name ban; and the UI layer simply stopped rendering
+the table. Self-checks assert both: that the generated flag copy passes the stricter gate, and
+that a sample sentence containing "repeated selections" is caught.
+
+### Human-in-the-loop: a flag is a candidate until a pediatrician says otherwise
+
+The build brief's technical section (§4) states the actual requirement plainly:
+
+> "Every flag must be reviewable and overridable by the mapped pediatrician before anything
+> reaches the parent as a 'confirmed' follow-up... the model surfaces a candidate pattern, it
+> does not conclude anything on its own."
+
+The earlier build did not do this — `evaluateFlag` raised a flag directly into the state a
+parent would immediately see. It now raises every flag as `pending_review`
+(`domain/flagEngine.ts`), and exactly one function, `isParentVisible`, decides whether any
+parent-facing screen may act as though a flag exists. A `pending_review` flag fails that
+check unconditionally. It only becomes visible once a pediatrician tags an outcome as "Needs
+visit" or "Diagnosis pending" in `screens/ClipReview.tsx` (`applyOutcome` performs the
+transition); tagging it "Not concerning" closes it invisibly instead — the parent is never
+told a candidate existed and was dismissed. Self-checks cover all of this: a fresh flag is
+never parent-visible, dismissing one keeps it invisible, confirming one makes it visible, and
+re-tagging an already-visible flag closes the loop rather than re-hiding it.
+
+One consequence worth naming: **`screens/SessionComplete.tsx` no longer shows a flag banner
+right after the session that triggered it.** It cannot — the flag is `pending_review` at that
+exact moment, by construction. The parent sees the same "nice playing" screen either way, and
+finds out later, from the dashboard, once (and only if) a pediatrician has confirmed it.
+
+`screens/PediatricianList.tsx` sorts `pending_review` flags to the very top, labelled
+"new pattern · needs your review", ahead of flags already shared with a parent
+("shared with parent · awaiting booking" / "· consultation requested" / "· reminder set") and
+ahead of closed history. That ordering is the spec's "flags always sorted to the top" made
+literal for a portal that now has three tiers of urgency instead of one.
+
+### The pediatrician's per-patient view gained context and a third outcome
+
+`screens/ClipReview.tsx` now shows a **session history summary** — total sessions, sessions
+in the last 14 days, first/last played, every skill area ever touched — computed from the
+child's whole history, not just the flagged game. Outcome tagging is now three-way:
+**Not concerning** / **Needs visit** / **Diagnosis pending**, matching the brief exactly.
+"Diagnosis pending" is an internal analytics tag only ("feeds the false-positive tracking");
+it unlocks parent visibility exactly like "Needs visit" does, and the word itself never
+reaches a parent screen (a self-check asserts this). "Message parent" now opens a real thread
+(see below) instead of a fake local toggle.
+
+### Additional features, honestly scoped
+
+The brief listed several more features as "worth adding... without much added complexity."
+Built, with the scope limits stated up front rather than discovered later:
+
+- **Consent & data controls** (`screens/Privacy.tsx`) — every count on the screen is read live
+  from the same store every other screen reads, so it cannot drift from what is actually
+  stored. Deletion calls the same wipe as every other "erase" control, gated behind typing the
+  child's name rather than a single tap.
+- **Exportable report** (`lib/reportExport.ts`, via `screens/ReportHistory.tsx`) — builds the
+  same report-card HTML a parent already sees (never the raw per-round table) and hands it to
+  `expo-print`. On web that opens the browser's print dialog directly; on a real device it
+  writes an actual PDF and opens the share sheet via `expo-sharing`.
+- **Session reminders** (`lib/reminders.ts`) — a daily local notification via
+  `expo-notifications`, phrased per the brief's own example ("Aarav's ready for today's
+  game!"), never a streak-shaming one. Local scheduling only — there is no push server
+  anywhere in this project, so this cannot notify about anything that happens on a server (a
+  pediatrician's reply, say), only remind on a schedule the device already knows. SDK 57's own
+  docs say local notifications are unsupported on web; the toggle is disabled there with that
+  explanation shown, rather than silently doing nothing.
+- **Messaging thread** (`screens/Messages.tsx`) — a real, working chat UI shared by the parent
+  and pediatrician views of the same thread. The brief's word "secure" is not earned here: this
+  is a same-device, local-storage thread with no server, so nothing is actually transmitted to
+  a pediatrician's own device. It demonstrates the exact data shape and UI a backed
+  implementation would use.
+- **Multi-language voice toggle** (`store/types.ts`'s `VOICE_LOCALES`, wired through
+  `lib/speech.ts`) — stubbed exactly as asked: it changes the locale/accent `expo-speech` reads
+  the existing English instructions in, and is labelled as such. No translated content exists
+  yet; the setting is real, the content behind it is future work.
+- **Waitlist for uncovered PIN codes** — already present from the original build
+  (`screens/Onboarding.tsx`, `domain/coverage.ts`); listed here because the brief asked for it
+  independently and it was already satisfied.
+
+---
+
 ## The one place the implementation departs from the spec
 
 Spec §4 defines `task_switch_time_ms` as the *"gap between round-end and next first-tap"*.
@@ -268,7 +390,13 @@ Two smaller notes, both marked in the code:
 ## How a flag is actually decided
 
 ```
-rounds  →  per-visit measures  →  signals  →  cluster  →  flag
+rounds → per-visit measures → signals → cluster → flag (pending_review)
+                                                          │
+                                              a pediatrician tags an outcome
+                                                          │
+                                     not concerning ──────┴────── needs visit / diagnosis pending
+                                  (closed, parent                 (open — NOW parent-visible,
+                                   never told)                     see isParentVisible)
 ```
 
 A **signal** is one measure, from one game, in one session, sitting outside the age
@@ -288,9 +416,11 @@ A **flag** requires all of:
 | No flag already open, not in the post-review quiet period | 21 days |
 
 Deviation is measured in *range-widths*, not z-scores — we do not have the distributions a
-z-score would imply, and pretending we do would be the overclaim the spec forbids. The
-evidence shown to a parent quotes the **median** of each signal type, never the single worst
-reading.
+z-score would imply, and pretending we do would be the overclaim the spec forbids. The raw
+evidence — which quotes the **median** of each signal type, never the single worst reading —
+is pediatrician-only. See
+[Human-in-the-loop](#human-in-the-loop-a-flag-is-a-candidate-until-a-pediatrician-says-otherwise)
+for what a parent actually sees, and when.
 
 Everything above is visible live in `settings › Flag engine — right now`, including which
 conditions are currently unmet and why.
@@ -328,17 +458,21 @@ src/
     tiers.ts       difficulty schedule (and therefore what a "rule change" is)
     telemetry.ts   spec §4 schema, snake_case so doc and code cannot drift
     signals.ts     per-visit measures → signals, incl. the switch-cost probe
-    flagEngine.ts  the cluster rule
-    safeLanguage.ts the language gate
+    flagEngine.ts  the cluster rule + the pending_review → open/closed transition
+    safeLanguage.ts the language gate (condition names) + the stricter parent-only gate (raw data)
+    reportCard.ts  the parent dashboard's status ladder, trend, and past-period logic
     rotation.ts    1–2 games per session, all ten domains twice a week
     coverage.ts    PIN → specialist mapping
     selftest.ts    the invariants, run in-app and in CI
   game/          the shared frame, the eight games, the round recorder
   screens/       one file per screen (wireframe-mapped and beyond)
-  store/         AsyncStorage-backed state: account + child profiles; demo history generator
+  store/         AsyncStorage-backed state: account + child profiles + messages; demo history generator
   ui/            design system primitives, incl. the bloom
   nav/           small typed stack (owns the back-lock during a session)
   theme/         tokens (palette, type) and font loading
+  lib/
+    reminders.ts     local session-reminder scheduling (expo-notifications)
+    reportExport.ts  report → HTML → PDF/print (expo-print, expo-sharing)
 scripts/
   verify-domain.ts   headless gate: npm run verify
 ```
