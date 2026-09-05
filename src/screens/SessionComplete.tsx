@@ -10,23 +10,27 @@ import { useApp } from '../store/AppStore';
 import { useNav, useParams } from '../nav/navigation';
 import { GAMES } from '../domain/games';
 import { DOMAINS } from '../domain/domains';
+import { isParentVisible } from '../domain/flagEngine';
 import { playSound } from '../lib/sounds';
 import { median } from '../domain/telemetry';
 
 /**
  * Post-session, parent-facing.
  *
- * When a flag was raised this is where the parent first learns of it — and the
- * tone rule from wireframe 03 still applies: progress first, calm second,
- * nothing red, no score.
+ * A flag that just fired is `pending_review` — see domain/flagEngine.ts — and
+ * a pediatrician has not looked at it yet. This screen must not hint that one
+ * exists until `isParentVisible` says so, even though `completeSession` did
+ * just hand back its id: the id is used only to poll for it later, from
+ * `parentHome`, once it has actually been reviewed.
  */
 export function SessionComplete() {
-  const { state, child, sessions, flags } = useApp();
+  const { child, sessions, flags } = useApp();
   const nav = useNav();
   const params = useParams<'sessionComplete'>();
 
   const session = sessions[sessions.length - 1];
-  const flag = params?.flagId ? flags.find(f => f.id === params.flagId) : undefined;
+  const candidateFlag = params?.flagId ? flags.find(f => f.id === params.flagId) : undefined;
+  const flag = candidateFlag && isParentVisible(candidateFlag) ? candidateFlag : undefined;
 
   useEffect(() => {
     playSound('celebrate');

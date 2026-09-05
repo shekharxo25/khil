@@ -31,7 +31,9 @@
     "plugins": [
       "expo-audio",
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "expo-sharing",
+      "expo-notifications"
     ],
     "backgroundColor": "#FBF7F1",
     "primaryColor": "#2E6B58"

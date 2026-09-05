@@ -84,3 +84,54 @@ export function safeLog(where: string, text: string): void {
   if (!__DEV__) return;
   console.log(`[khil] ${where}: ${assertSafeCopy(text, `log:${where}`)}`);
 }
+
+/**
+ * A second, stricter gate for anything a PARENT reads.
+ *
+ * Milestone spec v0.2, §1: "this section should never show the raw behavioral
+ * data or 'symptoms' (e.g. never say 'repetitive selections' or 'slow
+ * task-switching' — that's for the pediatrician's view only... The parent
+ * gets the conclusion in kind language, not the clinical observation itself."
+ *
+ * `assertSafeCopy` already keeps condition names and deficit language out of
+ * every string. This adds a second ban list specific to the parent channel:
+ * the technical names of the measures themselves, and any raw number that
+ * would make a sentence read as a lab result. A clinician-facing string (the
+ * clip review, the clinician note) is expected to contain exactly these
+ * terms and must NOT be run through this gate — see `evaluateFlag`, which
+ * calls this only for `parent_headline`/`parent_body` and the ordinary gate
+ * for `clinician_note`.
+ */
+const PARENT_ONLY_BANNED: Rule[] = [
+  { label: 'task-switching (technical)', pattern: /\btask[-\s]?switch(ing)?\b/i },
+  { label: 'repeated selections (technical)', pattern: /\brepeated?\s+selections?\b/i },
+  { label: 'repetition rate', pattern: /\brepetition\s+rate\b/i },
+  { label: 'latency', pattern: /\blatency\b/i },
+  { label: 'commission/omission (technical)', pattern: /\b(commission|omission)\s+(error|rate)/i },
+  { label: 'deviation (technical)', pattern: /\bdeviation\b/i },
+  { label: 'accuracy (technical)', pattern: /\baccuracy\b/i },
+  { label: 'reference range/band', pattern: /\b(reference|typical)\s+(range|band)\b/i },
+  { label: 'a raw millisecond figure', pattern: /\b\d+(\.\d+)?\s?(ms|milliseconds)\b/i },
+  { label: 'a raw percentage figure', pattern: /\b\d+(\.\d+)?\s?%/ },
+];
+
+export function findParentUnsafeTerms(text: string): string[] {
+  return [...findUnsafeTerms(text), ...PARENT_ONLY_BANNED.filter(r => r.pattern.test(text)).map(r => r.label)];
+}
+
+export function isParentSafeCopy(text: string): boolean {
+  return findParentUnsafeTerms(text).length === 0;
+}
+
+/** Gate for any string a parent-facing screen renders. See doc comment above. */
+export function assertParentSafeCopy(text: string, where: string): string {
+  const hits = findParentUnsafeTerms(text);
+  if (hits.length === 0) return text;
+
+  const message = `[khil/safe-language:parent] ${where} contained disallowed term(s): ${hits.join(', ')}`;
+  if (__DEV__) {
+    throw new Error(message);
+  }
+  console.warn(message);
+  return SAFE_FALLBACK;
+}

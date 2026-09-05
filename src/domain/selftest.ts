@@ -1,7 +1,7 @@
 import { seedSessions } from '../store/demoSeed';
 import { DAY_MS } from '../lib/time';
-import { evaluateFlag } from './flagEngine';
-import { findUnsafeTerms, isSafeCopy } from './safeLanguage';
+import { applyOutcome, evaluateFlag, isParentVisible } from './flagEngine';
+import { findParentUnsafeTerms, findUnsafeTerms, isSafeCopy } from './safeLanguage';
 import { SIGNAL_META, SIGNAL_IDS } from './signals';
 import { DOMAINS, DOMAIN_IDS } from './domains';
 import { GAME_IDS, GAMES, moduleName } from './games';
@@ -131,6 +131,78 @@ export function runSelfTests(): CheckResult[] {
       ...result.flag.evidence.map(e => e.measure),
     ].filter(text => !isSafeCopy(text));
     return unsafe.length === 0 ? true : `unsafe: ${unsafe.join(' | ')}`;
+  });
+
+  check('Parent-facing flag copy passes the stricter raw-data ban too', () => {
+    // Milestone spec v0.2 §1: the parent must never see the technical measure
+    // names or raw numbers — that's pediatrician-only. clinician_note is
+    // exempt on purpose; it is expected to contain exactly these terms.
+    const sessions = seedSessions({ childId: 'selftest', dobIso: DOB_FOUR_YEARS, mode: 'cluster' });
+    const result = evaluateFlag('selftest', sessions, []);
+    if (!result.flag) return 'no flag to check';
+    const unsafe = [result.flag.parent_headline, result.flag.parent_body].filter(
+      text => findParentUnsafeTerms(text).length > 0,
+    );
+    return unsafe.length === 0
+      ? true
+      : `raw/technical language reached the parent: ${unsafe
+          .map(t => `"${t}" -> ${findParentUnsafeTerms(t).join(', ')}`)
+          .join(' | ')}`;
+  });
+
+  // --- Human-in-the-loop (Milestone spec v0.2 §4) ---------------------------
+  check('A newly raised flag is never parent-visible', () => {
+    const sessions = seedSessions({ childId: 'selftest', dobIso: DOB_FOUR_YEARS, mode: 'cluster' });
+    const result = evaluateFlag('selftest', sessions, []);
+    if (!result.flag) return 'no flag to check';
+    return result.flag.status === 'pending_review' && !isParentVisible(result.flag)
+      ? true
+      : `status was "${result.flag.status}", parent-visible = ${isParentVisible(result.flag)}`;
+  });
+
+  check('A pediatrician dismissing a candidate keeps it invisible to the parent', () => {
+    const sessions = seedSessions({ childId: 'selftest', dobIso: DOB_FOUR_YEARS, mode: 'cluster' });
+    const result = evaluateFlag('selftest', sessions, []);
+    if (!result.flag) return 'no flag to check';
+    const patch = applyOutcome(result.flag, 'not_concerning', 'specialist');
+    const after = { ...result.flag, ...patch };
+    return !isParentVisible(after) && after.status === 'closed_not_concerning'
+      ? true
+      : `status became "${after.status}", parent-visible = ${isParentVisible(after)}`;
+  });
+
+  check('A pediatrician confirming "needs visit" is what makes it parent-visible', () => {
+    const sessions = seedSessions({ childId: 'selftest', dobIso: DOB_FOUR_YEARS, mode: 'cluster' });
+    const result = evaluateFlag('selftest', sessions, []);
+    if (!result.flag) return 'no flag to check';
+    const patch = applyOutcome(result.flag, 'needs_visit', 'specialist');
+    const after = { ...result.flag, ...patch };
+    return isParentVisible(after) && after.status === 'open'
+      ? true
+      : `status became "${after.status}", parent-visible = ${isParentVisible(after)}`;
+  });
+
+  check('"Diagnosis pending" also unlocks parent visibility, without the word reaching them', () => {
+    const sessions = seedSessions({ childId: 'selftest', dobIso: DOB_FOUR_YEARS, mode: 'cluster' });
+    const result = evaluateFlag('selftest', sessions, []);
+    if (!result.flag) return 'no flag to check';
+    const patch = applyOutcome(result.flag, 'diagnosis_pending', 'specialist');
+    const after = { ...result.flag, ...patch };
+    if (!isParentVisible(after)) return `status became "${after.status}", still not parent-visible`;
+    return isSafeCopy(after.parent_body) && isSafeCopy(after.parent_headline)
+      ? true
+      : 'the word reached parent-facing copy';
+  });
+
+  check('Re-tagging an already-visible flag closes it instead of re-hiding it', () => {
+    const sessions = seedSessions({ childId: 'selftest', dobIso: DOB_FOUR_YEARS, mode: 'cluster' });
+    const result = evaluateFlag('selftest', sessions, []);
+    if (!result.flag) return 'no flag to check';
+    const openFlag = { ...result.flag, status: 'open' as const };
+    const patch = applyOutcome(openFlag, 'needs_visit', 'specialist');
+    return patch.status === 'closed_needs_visit'
+      ? true
+      : `expected closed_needs_visit, got ${patch.status}`;
   });
 
   // --- Reference bands -----------------------------------------------------

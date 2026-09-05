@@ -7,9 +7,11 @@ import React, {
   useReducer,
   useRef,
 } from 'react';
-import { evaluateFlag, type Flag, type FlagOutcome } from '../domain/flagEngine';
+import { applyOutcome, evaluateFlag, type Flag, type FlagOutcome } from '../domain/flagEngine';
 import type { SessionRecord } from '../domain/telemetry';
 import { makeId } from '../lib/id';
+import { disableDailyReminder, enableDailyReminder } from '../lib/reminders';
+import { setVoiceLocale } from '../lib/speech';
 import { clearState, loadState, saveState } from './storage';
 import {
   AVATAR_COLORS,
@@ -27,6 +29,7 @@ import {
   type ChildProfile,
   type ClusterPatient,
   type ConsentRecord,
+  type Message,
   type PersistedState,
   type PlanId,
   type Settings,
@@ -49,6 +52,7 @@ type Action =
   | { type: 'add-session'; session: SessionRecord }
   | { type: 'add-flag'; flag: Flag }
   | { type: 'patch-flag'; id: string; patch: Partial<Flag> }
+  | { type: 'send-message'; message: Message }
   | { type: 'settings'; patch: Partial<Settings> }
   | { type: 'replace'; state: PersistedState }
   | { type: 'reset' };
@@ -57,7 +61,14 @@ function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'hydrate':
       return action.payload
-        ? { ...action.payload, hydrated: true }
+        ? {
+            ...action.payload,
+            // Defensive merge: a persisted state from before a settings field
+            // existed must not resolve that field to `undefined` at runtime.
+            settings: { ...DEFAULT_SETTINGS, ...action.payload.settings },
+            messages: action.payload.messages ?? [],
+            hydrated: true,
+          }
         : { ...INITIAL_STATE, hydrated: true };
 
     case 'create-account':
@@ -92,6 +103,7 @@ function reducer(state: AppState, action: Action): AppState {
         // sessions behind would quietly keep feeding the flag engine.
         sessions: state.sessions.filter(s => s.child_id !== action.id),
         flags: state.flags.filter(f => f.child_id !== action.id),
+        messages: state.messages.filter(m => m.child_id !== action.id),
         activeProfileId:
           state.activeProfileId === action.id ? (profiles[0]?.child_id ?? null) : state.activeProfileId,
       };
@@ -116,6 +128,9 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         flags: state.flags.map(f => (f.id === action.id ? { ...f, ...action.patch } : f)),
       };
+
+    case 'send-message':
+      return { ...state, messages: [...state.messages, action.message] };
 
     case 'settings':
       return { ...state, settings: { ...state.settings, ...action.patch } };
@@ -165,16 +180,24 @@ export type AppApi = {
   canAddProfile: boolean;
   suggestAvatar: () => Avatar;
 
-  /** Sessions and flags for the active child only. */
+  /** Sessions, flags and messages for the active child only. */
   sessions: SessionRecord[];
   flags: Flag[];
+  messages: Message[];
   sessionsFor: (childId: string) => SessionRecord[];
   flagsFor: (childId: string) => Flag[];
+  messagesFor: (childId: string) => Message[];
+  sendMessage: (childId: string, from: Message['from'], body: string) => void;
 
   completeSession: (session: SessionRecord) => Flag | null;
   patchFlag: (id: string, patch: Partial<Flag>) => void;
   bookAppointment: (flagId: string) => void;
   snoozeFlag: (flagId: string, days: number) => void;
+  /**
+   * The pediatrician's outcome decision. This is the ONLY place a candidate
+   * flag can become visible to a parent (or be dismissed before it ever is) —
+   * see `domain/flagEngine.ts`'s `applyOutcome`.
+   */
   markOutcome: (flagId: string, outcome: FlagOutcome, by: string) => void;
 
   setSettings: (patch: Partial<Settings>) => void;
@@ -305,13 +328,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const markOutcome = useCallback((flagId: string, outcome: FlagOutcome, by: string) => {
+    const flag = stateRef.current.flags.find(f => f.id === flagId);
+    if (!flag) return;
+    const patch = applyOutcome(flag, outcome, by);
+    dispatch({ type: 'patch-flag', id: flagId, patch });
+  }, []);
+
+  const sendMessage = useCallback((childId: string, from: Message['from'], body: string) => {
+    const trimmed = body.trim();
+    if (!trimmed) return;
     dispatch({
-      type: 'patch-flag',
-      id: flagId,
-      patch: {
-        status: outcome === 'needs_visit' ? 'closed_needs_visit' : 'closed_not_concerning',
-        outcome: { outcome, marked_at: Date.now(), by },
-      },
+      type: 'send-message',
+      message: { id: makeId('msg'), child_id: childId, from, body: trimmed, sent_at: Date.now() },
     });
   }, []);
 
@@ -344,6 +372,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activeProfileId: current.activeProfileId,
         sessions: [...others, ...sessions],
         flags: evaluation.flag ? [...otherFlags, evaluation.flag] : otherFlags,
+        messages: current.messages,
         settings: current.settings,
         clusterPatients: current.clusterPatients,
       },
@@ -370,6 +399,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [state.flags, child],
   );
 
+  const messages = useMemo(
+    () => (child ? state.messages.filter(m => m.child_id === child.child_id) : []),
+    [state.messages, child],
+  );
+
   const sessionsFor = useCallback(
     (childId: string) => stateRef.current.sessions.filter(s => s.child_id === childId),
     [],
@@ -378,6 +412,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (childId: string) => stateRef.current.flags.filter(f => f.child_id === childId),
     [],
   );
+  const messagesFor = useCallback(
+    (childId: string) => stateRef.current.messages.filter(m => m.child_id === childId),
+    [],
+  );
+
+  // Local session reminders track the toggle and the active child's name.
+  // Scheduling is a side effect on top of otherwise-pure state, which is why
+  // it lives here rather than in domain/store logic.
+  useEffect(() => {
+    if (!state.hydrated) return;
+    if (state.settings.remindersEnabled && child) {
+      void enableDailyReminder(child.name);
+    } else {
+      void disableDailyReminder();
+    }
+  }, [state.hydrated, state.settings.remindersEnabled, child]);
+
+  useEffect(() => {
+    setVoiceLocale(state.settings.voiceLocale);
+  }, [state.settings.voiceLocale]);
 
   const value = useMemo<AppApi>(
     () => ({
@@ -394,8 +448,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       suggestAvatar,
       sessions,
       flags,
+      messages,
       sessionsFor,
       flagsFor,
+      messagesFor,
+      sendMessage,
       completeSession,
       patchFlag,
       bookAppointment,
@@ -417,8 +474,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       suggestAvatar,
       sessions,
       flags,
+      messages,
       sessionsFor,
       flagsFor,
+      messagesFor,
+      sendMessage,
       completeSession,
       patchFlag,
       bookAppointment,

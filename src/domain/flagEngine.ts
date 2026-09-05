@@ -2,7 +2,7 @@ import { makeId } from '../lib/id';
 import { DAY_MS, formatDate } from '../lib/time';
 import type { DomainId } from './domains';
 import { moduleName, type GameId } from './games';
-import { assertSafeCopy } from './safeLanguage';
+import { assertSafeCopy, assertParentSafeCopy } from './safeLanguage';
 import {
   SIGNAL_META,
   formatSignalValue,
@@ -48,14 +48,38 @@ export const FLAG_RULES = {
   cooldownDays: 21,
 } as const;
 
+/**
+ * Milestone spec v0.2, §4 (the "detection agent" brief): "Every flag must be
+ * reviewable and overridable by the mapped pediatrician before anything
+ * reaches the parent as a 'confirmed' follow-up... the model surfaces a
+ * candidate pattern, it does not conclude anything on its own."
+ *
+ * That is `pending_review`: the state a flag is born in. A parent-facing
+ * screen must never treat `pending_review` as visible — see `isParentVisible`
+ * below, which is the single place that decision is made. Only after a
+ * pediatrician tags an outcome does a flag either become `open` (parent sees
+ * the plain-language nudge) or `closed_not_concerning` (parent sees nothing —
+ * the algorithm's candidate was reviewed and dismissed before ever reaching
+ * them).
+ */
 export type FlagStatus =
+  | 'pending_review'
   | 'open'
   | 'booked'
   | 'snoozed'
   | 'closed_not_concerning'
   | 'closed_needs_visit';
 
-export type FlagOutcome = 'not_concerning' | 'needs_visit';
+/**
+ * `diagnosis_pending` is an internal/ops tag only — Milestone spec §2: "feeds
+ * the false-positive tracking". It is never rendered to a parent, and it is
+ * never rendered to a clinician as anything other than a tag on their own
+ * outcome list; see `safeLanguage.ts` for why the word "diagnosis" appearing
+ * only in a pediatrician-facing analytics label, and never as a claim about a
+ * child, is the one place that word is allowed to exist in this codebase at
+ * all.
+ */
+export type FlagOutcome = 'not_concerning' | 'needs_visit' | 'diagnosis_pending';
 
 export type FlagEvidence = {
   signal_id: SignalId;
@@ -167,7 +191,12 @@ export function evaluateFlag(
   const clusterStrength = recurringTypes.reduce((sum, [, entry]) => sum + entry.strength, 0);
 
   const openFlag = existingFlags.find(
-    f => f.child_id === childId && (f.status === 'open' || f.status === 'booked' || f.status === 'snoozed'),
+    f =>
+      f.child_id === childId &&
+      (f.status === 'pending_review' ||
+        f.status === 'open' ||
+        f.status === 'booked' ||
+        f.status === 'snoozed'),
   );
   const lastClosed = existingFlags
     .filter(f => f.child_id === childId && f.status.startsWith('closed'))
@@ -273,8 +302,8 @@ export function evaluateFlag(
     };
   });
 
-  const parentBody = assertSafeCopy(joinClauses(clauses), 'flag.parent_body');
-  const parentHeadline = assertSafeCopy(
+  const parentBody = assertParentSafeCopy(joinClauses(clauses), 'flag.parent_body');
+  const parentHeadline = assertParentSafeCopy(
     'We noticed something worth a second look',
     'flag.parent_headline',
   );
@@ -293,7 +322,9 @@ export function evaluateFlag(
     created_at: now,
     window_start: now - FLAG_RULES.windowDays * DAY_MS,
     window_end: now,
-    status: 'open',
+    // Born as a candidate only. A parent must never learn this exists until a
+    // pediatrician has reviewed it — see the FlagStatus doc comment above.
+    status: 'pending_review',
     primary_domain: strongest.domain,
     primary_game: strongest.game_id,
     session_ids: sessionIds,
@@ -306,6 +337,49 @@ export function evaluateFlag(
   };
 
   return { criteria, eligible: true, flag, windowSignals };
+}
+
+/**
+ * The single place a pediatrician's outcome decision is turned into a status
+ * transition. Pure and total, so it can be unit-tested independently of the
+ * store: given a flag and an outcome, what should the new status be?
+ *
+ * Two different moments call this, and they behave differently on purpose:
+ *
+ *  - The flag is still `pending_review` (the parent has seen nothing yet).
+ *    `not_concerning` closes it invisibly. `needs_visit` or
+ *    `diagnosis_pending` promote it to `open`, which is the one and only
+ *    moment a parent becomes able to see it at all.
+ *  - The flag is already parent-visible (`open`/`booked`/`snoozed`) and this
+ *    is a later, final tag — e.g. after the visit actually happened. Any
+ *    outcome here just closes the loop; the parent has already been told.
+ */
+export function applyOutcome(
+  flag: Flag,
+  outcome: FlagOutcome,
+  by: string,
+  now: number = Date.now(),
+): { status: FlagStatus; outcome: NonNullable<Flag['outcome']> } {
+  const stillCandidate = flag.status === 'pending_review';
+  const status: FlagStatus = stillCandidate
+    ? outcome === 'not_concerning'
+      ? 'closed_not_concerning'
+      : 'open'
+    : outcome === 'not_concerning'
+      ? 'closed_not_concerning'
+      : 'closed_needs_visit';
+  return { status, outcome: { outcome, marked_at: now, by } };
+}
+
+/**
+ * The one function every parent-facing screen must call before showing
+ * anything about a flag. A candidate the pediatrician hasn't reviewed yet
+ * does not exist as far as a parent screen is concerned.
+ */
+export function isParentVisible(flag: Flag, now: number = Date.now()): boolean {
+  if (flag.status === 'open' || flag.status === 'booked') return true;
+  if (flag.status === 'snoozed') return (flag.snooze_until ?? 0) <= now;
+  return false; // pending_review, closed_not_concerning, closed_needs_visit
 }
 
 function listify(items: string[]): string {

@@ -68,7 +68,11 @@ export const SIGNAL_META: Record<SignalId, SignalMeta> = {
   },
   repeated_selection: {
     id: 'repeated_selection',
-    clause: 'more repeated selections than most children in this age range',
+    // The parent-facing clause deliberately avoids the technical phrase
+    // "repeated selections" — the Milestone spec names that exact phrase as
+    // an example of raw behavioural data that must stay pediatrician-only.
+    // See safeLanguage.ts's PARENT_ONLY_BANNED list, which enforces this.
+    clause: 'trying the same answer again after it didn’t work, more than most children this age',
     clinicalClause: 'repeated selection of the same non-matching option',
     measure: 'How often the same non-matching option was chosen again',
   },

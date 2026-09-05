@@ -18,6 +18,8 @@ import {
 import { formatSignalValue, SIGNAL_META } from '../domain/signals';
 import { moduleName } from '../domain/games';
 import { relativeDay } from '../lib/time';
+import { VOICE_LOCALES } from '../store/types';
+import { REMINDERS_SUPPORTED } from '../lib/reminders';
 
 /**
  * Settings, demo controls, and — more importantly — the audit surface.
@@ -50,6 +52,61 @@ export function DevPanel() {
 
   return (
     <Screen backLabel="progress" title="Settings & audit">
+      <Card label="Household">
+        <Row align="flex-start" gap={space.md}>
+          <View style={styles.grow}>
+            <Txt variant="bodyStrong">Session reminders</Txt>
+            <Txt variant="micro" tone="faint" style={styles.mtXs}>
+              {REMINDERS_SUPPORTED
+                ? 'A gentle daily nudge if today’s session hasn’t happened yet. No push server — just an on-device reminder.'
+                : 'Not supported in this browser preview — works on the Android/iOS app.'}
+            </Txt>
+          </View>
+          <Switch
+            value={state.settings.remindersEnabled}
+            onValueChange={v => setSettings({ remindersEnabled: v })}
+            disabled={!REMINDERS_SUPPORTED}
+            trackColor={{ true: color.brand, false: color.hairlineStrong }}
+            thumbColor="#FFFFFF"
+          />
+        </Row>
+
+        <Divider style={styles.divider} />
+
+        <Txt variant="bodyStrong">Game voice</Txt>
+        <Txt variant="micro" tone="faint" style={styles.mtXs}>
+          Changes the accent used to read instructions aloud. Every instruction is still
+          written and spoken in English — full translated content is a roadmap item.
+        </Txt>
+        <Row gap={space.sm} wrap style={styles.mtMd}>
+          {VOICE_LOCALES.map(locale => {
+            const active = state.settings.voiceLocale === locale.id;
+            return (
+              <Pressable
+                key={locale.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => setSettings({ voiceLocale: locale.id })}
+              >
+                <View style={[styles.localeChip, active && styles.localeChipOn]}>
+                  <Txt variant="small" tone={active ? 'inverse' : 'soft'}>
+                    {locale.label}
+                  </Txt>
+                </View>
+              </Pressable>
+            );
+          })}
+        </Row>
+
+        <Divider style={styles.divider} />
+
+        <Pressable onPress={() => nav.push('privacy')} hitSlop={8}>
+          <Txt variant="small" tone="brand">
+            Privacy & data ›
+          </Txt>
+        </Pressable>
+      </Card>
+
       <Card label="Play settings">
         <Toggle
           label="Spoken instructions"
@@ -296,4 +353,13 @@ const styles = StyleSheet.create({
     maxHeight: 260,
   },
   mono: { fontVariant: ['tabular-nums'] },
+  localeChip: {
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: color.hairlineStrong,
+    backgroundColor: color.surface,
+  },
+  localeChipOn: { backgroundColor: color.brandDeep, borderColor: color.brandDeep },
 });

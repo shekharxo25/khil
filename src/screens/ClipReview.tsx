@@ -8,11 +8,12 @@ import { Chip, Divider, Row } from '../ui/Bits';
 import { color, radius, space } from '../theme/tokens';
 import { useApp } from '../store/AppStore';
 import { useNav, useParams } from '../nav/navigation';
-import { moduleName } from '../domain/games';
+import { DOMAINS, type DomainId } from '../domain/domains';
+import { GAMES, moduleName } from '../domain/games';
 import { REFERENCE_NOTE, REFERENCE_PROVENANCE } from '../domain/norms';
-import type { RoundEvent } from '../domain/telemetry';
+import type { RoundEvent, SessionRecord } from '../domain/telemetry';
 import { formatClock, formatDate } from '../lib/time';
-import { ageInYears } from '../lib/time';
+import { ageInYears, relativeDay } from '../lib/time';
 
 /**
  * Screen 06 — Pediatrician clip review.
@@ -34,14 +35,20 @@ const TICK_MS = 60;
 const ROUND_TAIL_MS = 900;
 
 export function ClipReview() {
-  const { state, child, sessions, flags, markOutcome } = useApp();
+  const { child, sessions, flags, markOutcome } = useApp();
   const nav = useNav();
   const { flagId } = useParams<'clinicReview'>();
 
   const flag = flags.find(f => f.id === flagId);
   const [playing, setPlaying] = useState(false);
   const [t, setT] = useState(0);
-  const [messaged, setMessaged] = useState(false);
+
+  /**
+   * Session history summary — Milestone spec §2: "helps the pediatrician get
+   * context, not just the flag in isolation." Drawn from every one of this
+   * child's sessions, not only the flagged one.
+   */
+  const history = useMemo(() => summarizeHistory(sessions), [sessions]);
 
   const clip = useMemo(() => {
     if (!flag) return null;
@@ -116,6 +123,7 @@ export function ClipReview() {
   const lastTap = visibleTaps[visibleTaps.length - 1];
 
   const closed = flag.status.startsWith('closed');
+  const pendingReview = flag.status === 'pending_review';
 
   return (
     <Screen
@@ -131,6 +139,33 @@ export function ClipReview() {
         <Txt variant="body" tone="notice">
           {flag.clinician_note}
         </Txt>
+        {pendingReview ? (
+          <Txt variant="micro" tone="notice" style={styles.mtSm}>
+            The parent has not seen this. It only reaches them if you mark it "Needs visit"
+            or "Diagnosis pending" below.
+          </Txt>
+        ) : null}
+      </Card>
+
+      {/* Session history summary — Milestone spec §2: context for the flag,
+          not just the flag in isolation. Drawn from every session this child
+          has ever played, not only the flagged one. */}
+      <Card label="Session history">
+        <Row style={styles.between}>
+          <Txt variant="bodyStrong">{history.totalSessions} sessions played</Txt>
+          <Txt variant="small" tone="faint">
+            {history.lastPlayed ? `last ${relativeDay(history.lastPlayed).toLowerCase()}` : '—'}
+          </Txt>
+        </Row>
+        <Txt variant="small" tone="soft" style={styles.mtXs}>
+          {history.sessionsRecent} in the last 14 days · first played{' '}
+          {history.firstPlayed ? formatDate(history.firstPlayed) : '—'}
+        </Txt>
+        <Row gap={space.sm} wrap style={styles.mtMd}>
+          {history.domains.map(d => (
+            <Chip key={d} label={DOMAINS[d].label} glyph={DOMAINS[d].emoji} tone="clinic" />
+          ))}
+        </Row>
       </Card>
 
       <Card tone="clinic" label={`Flagged segment · ${moduleName(clip.gameId)}`}>
@@ -245,12 +280,8 @@ export function ClipReview() {
         {closed ? (
           <Row gap={space.md}>
             <Chip
-              label={
-                flag.outcome?.outcome === 'needs_visit'
-                  ? 'Marked: needs visit'
-                  : 'Marked: not concerning'
-              }
-              tone={flag.outcome?.outcome === 'needs_visit' ? 'notice' : 'positive'}
+              label={`Marked: ${OUTCOME_LABEL[flag.outcome?.outcome ?? 'not_concerning']}`}
+              tone={flag.outcome?.outcome === 'not_concerning' ? 'positive' : 'notice'}
               glyph="✓"
             />
           </Row>
@@ -272,31 +303,56 @@ export function ClipReview() {
                 nav.back();
               }}
             />
+            <Button
+              label="Diagnosis pending"
+              variant="secondary"
+              onPress={() => {
+                markOutcome(flag.id, 'diagnosis_pending', 'specialist');
+                nav.back();
+              }}
+            />
           </View>
         )}
         <Txt variant="micro" tone="faint" style={styles.mtMd}>
-          Outcome tagging is how Khil measures whether its flags are useful. It is the only
-          way the false-positive rate becomes visible.
+          Outcome tagging is how Khil measures whether its flags are useful — this is what
+          the false-positive rate is computed from. "Diagnosis pending" is an internal tag
+          for that tracking only; the parent never sees the word.
         </Txt>
       </Card>
 
       <Card tone="sunk">
-        {messaged ? (
-          <Row gap={space.sm}>
-            <Txt variant="small" tone="positive">
-              ✓ Suggestion sent to the parent.
-            </Txt>
-          </Row>
-        ) : (
-          <Button
-            label="Message parent — suggest consultation"
-            variant="secondary"
-            onPress={() => setMessaged(true)}
-          />
-        )}
+        <Button
+          label="Message parent — suggest consultation"
+          variant="secondary"
+          onPress={() => flag && nav.push('messages', { childId: flag.child_id, asClinician: true })}
+        />
       </Card>
     </Screen>
   );
+}
+
+const OUTCOME_LABEL: Record<string, string> = {
+  not_concerning: 'not concerning',
+  needs_visit: 'needs visit',
+  diagnosis_pending: 'diagnosis pending',
+};
+
+/** Frequency, domains played, general engagement — across every session, not just the flagged one. */
+function summarizeHistory(sessions: SessionRecord[]) {
+  const played = sessions.filter(s => !s.abandoned);
+  const now = Date.now();
+  const recent = played.filter(s => now - s.ended_at <= 14 * 24 * 60 * 60 * 1000);
+  const domains = new Set<DomainId>();
+  for (const s of played) {
+    for (const g of s.game_ids) GAMES[g].domains.forEach(d => domains.add(d));
+  }
+  return {
+    totalSessions: played.length,
+    sessionsRecent: recent.length,
+    lastPlayed: played.length ? Math.max(...played.map(s => s.ended_at)) : null,
+    firstPlayed: played.length ? Math.min(...played.map(s => s.started_at)) : null,
+    domains: Array.from(domains),
+  };
 }
 
 /** The rule a round ran under — the thing whose change defines a task switch. */
@@ -455,6 +511,7 @@ const styles = StyleSheet.create({
   col: { flex: 1 },
   colEnd: { width: 42, textAlign: 'right' },
   outcomeRow: { gap: space.sm },
+  mtXs: { marginTop: space.xs },
   mtSm: { marginTop: space.sm },
   mtMd: { marginTop: space.md },
 });

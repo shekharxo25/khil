@@ -19,7 +19,7 @@
 (globalThis as Record<string, unknown>).__DEV__ = false;
 
 import { runSelfTests } from '../src/domain/selftest';
-import { evaluateFlag } from '../src/domain/flagEngine';
+import { evaluateFlag, isParentVisible } from '../src/domain/flagEngine';
 import { signalsForSessions, SIGNAL_META } from '../src/domain/signals';
 import { seedSessions } from '../src/store/demoSeed';
 import { planSession, weekCoverage } from '../src/domain/rotation';
@@ -60,14 +60,19 @@ for (const criterion of evaluateFlag('verify_cluster', cluster, []).criteria) {
 const clusterEval = evaluateFlag('verify_cluster', cluster, []);
 if (clusterEval.flag) {
   const flag = clusterEval.flag;
-  console.log('\n  ── what the parent sees ──');
+  // A freshly raised flag is `pending_review` and is NOT actually shown to a
+  // parent yet — see domain/flagEngine.ts's `isParentVisible`. This trace
+  // prints the copy that WOULD be shown once a pediatrician confirms it, to
+  // demonstrate the wording without implying it bypassed review.
+  console.log(`\n  status: ${flag.status} (parent-visible: ${isParentVisible(flag)})`);
+  console.log('\n  ── what the parent will see, once a specialist confirms it ──');
   console.log(`  ⚑ ${flag.parent_headline}`);
   console.log(`     ${flag.parent_body}`);
   console.log(`     observed on: ${flag.observed_label}`);
-  console.log('\n  ── what the specialist sees ──');
+  console.log('\n  ── what the specialist sees right now, in the review queue ──');
   console.log(`     SYSTEM NOTE (NOT A DIAGNOSIS)`);
   console.log(`     ${flag.clinician_note}`);
-  console.log('\n  ── evidence ──');
+  console.log('\n  ── evidence (pediatrician-only) ──');
   for (const item of flag.evidence) {
     console.log(
       `     ${item.measure}\n       observed ${item.observed} · typical ${item.expected_range} · ${item.sessions} sessions · ${item.modules.join(', ')}`,

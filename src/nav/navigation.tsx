@@ -30,6 +30,12 @@ export type RouteMap = {
 
   flagDetail: { flagId: string };
   skills: undefined;
+  /** A past report-card period. 0 = the current, in-progress one. */
+  reportHistory: { periodIndex: number };
+  /** Message thread with the mapped specialist, for a parent or a pediatrician. */
+  messages: { childId: string; asClinician?: boolean };
+  /** Consent & data controls — Milestone spec §3. */
+  privacy: undefined;
   clinicList: undefined;
   clinicReview: { flagId: string };
   devPanel: undefined;

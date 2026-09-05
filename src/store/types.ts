@@ -123,6 +123,25 @@ export type ConsentRecord = {
   copy_version: string;
 };
 
+/**
+ * Voice locales offered in settings. Milestone spec §3: "Multi-language
+ * toggle for game voice instructions... worth stubbing the setting now even
+ * before content exists." So the setting is real and does change the
+ * text-to-speech locale passed to `expo-speech`, but every string in the app
+ * is still written in English — a locale change here changes the accent/
+ * pronunciation engine used to read that English text aloud, not the words.
+ * Swapping in real translated content per language is future work, and the
+ * setting's own copy says so.
+ */
+export type VoiceLocale = 'en-IN' | 'en-US' | 'en-GB' | 'hi-IN';
+
+export const VOICE_LOCALES: { id: VoiceLocale; label: string; stub?: boolean }[] = [
+  { id: 'en-IN', label: 'English (India)' },
+  { id: 'en-US', label: 'English (US)' },
+  { id: 'en-GB', label: 'English (UK)' },
+  { id: 'hi-IN', label: 'Hindi — voice only, text stays English', stub: true },
+];
+
 export type Settings = {
   /** Spec §5 — restrict rotation to the two MVP games. */
   mvpOnly: boolean;
@@ -133,6 +152,15 @@ export type Settings = {
    */
   showPromptText: boolean;
   showCaptureDebug: boolean;
+  /** Locale passed to expo-speech. See VoiceLocale doc comment. */
+  voiceLocale: VoiceLocale;
+  /**
+   * Local, on-device session reminders. Milestone spec §3: "gentle nudges for
+   * session streaks and flag follow-ups (not guilt-trippy)". There is no push
+   * server behind this — see `lib/reminders.ts` — so it only works while the
+   * app can schedule an on-device notification, which excludes web.
+   */
+  remindersEnabled: boolean;
 };
 
 /** Other families in the clinician's PIN cluster. Fictional, never flagged. */
@@ -145,6 +173,26 @@ export type ClusterPatient = {
   note: string;
 };
 
+/**
+ * A message thread between a household and its matched specialist.
+ *
+ * Milestone spec §3: "Secure messaging thread between parent and mapped
+ * pediatrician, so booking/follow-up doesn't need to leave the app." Honest
+ * scope note, because the word "secure" is doing real work in that sentence:
+ * this is a same-device, local-storage thread — there is no server, so
+ * nothing is actually transmitted to a pediatrician's own device anywhere in
+ * this build. It demonstrates the exact UI and data shape a real
+ * implementation would use; wiring it to a backend is what would make the
+ * word "secure" true rather than aspirational. See README.
+ */
+export type Message = {
+  id: string;
+  child_id: string;
+  from: 'parent' | 'clinician';
+  body: string;
+  sent_at: number;
+};
+
 export type AppState = {
   hydrated: boolean;
   schema_version: number;
@@ -154,6 +202,7 @@ export type AppState = {
   activeProfileId: string | null;
   sessions: SessionRecord[];
   flags: Flag[];
+  messages: Message[];
   settings: Settings;
   clusterPatients: ClusterPatient[];
 };
@@ -161,14 +210,16 @@ export type AppState = {
 export type PersistedState = Omit<AppState, 'hydrated'>;
 
 export const CONSENT_COPY_VERSION = '2026-08-onboarding-v1';
-/** Bumped for the account/profiles model; storage clears anything older. */
-export const SCHEMA_VERSION = 2;
+/** Bumped for messaging + settings additions; storage clears anything older. */
+export const SCHEMA_VERSION = 3;
 
 export const DEFAULT_SETTINGS: Settings = {
   mvpOnly: false,
   voiceEnabled: true,
   showPromptText: false,
   showCaptureDebug: false,
+  voiceLocale: 'en-IN',
+  remindersEnabled: false,
 };
 
 export const INITIAL_STATE: AppState = {
@@ -180,6 +231,7 @@ export const INITIAL_STATE: AppState = {
   activeProfileId: null,
   sessions: [],
   flags: [],
+  messages: [],
   settings: DEFAULT_SETTINGS,
   clusterPatients: [],
 };

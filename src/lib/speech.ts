@@ -17,6 +17,18 @@ export type SpeakHandle = { cancel: () => void };
 
 let activeToken = 0;
 
+/**
+ * The locale passed to expo-speech. Module-level rather than threaded through
+ * every game's props, because it is a single household-wide setting (see
+ * Settings.voiceLocale) that every game's `speak`/`say` call should pick up
+ * without each of the eight games needing a new prop just to plumb it through.
+ * `AppStore` calls `setVoiceLocale` whenever the setting changes.
+ */
+let currentLocale = 'en-IN';
+export function setVoiceLocale(locale: string): void {
+  currentLocale = locale;
+}
+
 /** Rough spoken duration, used only as a fallback deadline. */
 function estimateMs(text: string, rate: number): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
@@ -53,7 +65,7 @@ export function speak(text: string, options: SpeakOptions = {}): SpeakHandle {
     Speech.speak(text, {
       rate,
       pitch,
-      language: 'en-IN',
+      language: currentLocale,
       onDone: finish,
       onStopped: finish,
       onError: finish,

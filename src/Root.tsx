@@ -23,6 +23,9 @@ import { SkillsScreen } from './screens/SkillsScreen';
 import { PediatricianList } from './screens/PediatricianList';
 import { ClipReview } from './screens/ClipReview';
 import { DevPanel } from './screens/DevPanel';
+import { ReportHistory } from './screens/ReportHistory';
+import { Privacy } from './screens/Privacy';
+import { Messages } from './screens/Messages';
 
 const SCREENS: Record<RouteName, React.ComponentType> = {
   onboarding: Onboarding,
@@ -39,6 +42,9 @@ const SCREENS: Record<RouteName, React.ComponentType> = {
   clinicList: PediatricianList,
   clinicReview: ClipReview,
   devPanel: DevPanel,
+  reportHistory: ReportHistory,
+  privacy: Privacy,
+  messages: Messages,
 };
 
 function Router() {

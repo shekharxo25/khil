@@ -34,30 +34,47 @@ export function PediatricianList() {
     () =>
       profiles.map(profile => {
         const childFlags = flagsFor(profile.child_id);
-        const openFlag = childFlags.find(
+        // A candidate the algorithm raised but nobody has looked at yet.
+        // This is the row the whole portal exists to surface — spec §2:
+        // "flags always sorted to the top."
+        const needsReview = childFlags.find(f => f.status === 'pending_review');
+        // Already reviewed and shared with the parent — still tracked, but
+        // no longer the urgent case.
+        const shared = childFlags.find(
           f => f.status === 'open' || f.status === 'booked' || f.status === 'snoozed',
         );
         const closedFlags = childFlags.filter(f => f.status.startsWith('closed'));
+        const active = needsReview ?? shared;
         return {
           id: profile.child_id,
           name: profile.name,
           age: ageInYears(profile.dob_iso),
-          flagged: !!openFlag,
-          note: openFlag
-            ? openFlag.status === 'booked'
-              ? 'new flag · consultation requested'
-              : 'new flag · replay attached'
-            : closedFlags.length > 0
-              ? 'reviewed · no open flags'
-              : 'no flags this month',
-          flagId: openFlag?.id,
+          needsReview: !!needsReview,
+          note: needsReview
+            ? 'new pattern · needs your review'
+            : shared
+              ? shared.status === 'booked'
+                ? 'shared with parent · consultation requested'
+                : shared.status === 'snoozed'
+                  ? 'shared with parent · reminder set'
+                  : 'shared with parent · awaiting booking'
+              : closedFlags.length > 0
+                ? 'reviewed · no open flags'
+                : 'no flags this month',
+          flagId: active?.id,
           closedFlags,
         };
       }),
+      // Needs-review rows first, exactly as the spec asks.
     [profiles, flagsFor],
   );
 
-  const openFlagCount = householdRows.filter(r => r.flagged).length;
+  const sortedHouseholdRows = useMemo(
+    () => [...householdRows].sort((a, b) => Number(b.needsReview) - Number(a.needsReview)),
+    [householdRows],
+  );
+
+  const reviewCount = householdRows.filter(r => r.needsReview).length;
   const allClosedFlags = householdRows.flatMap(r =>
     r.closedFlags.map(flag => ({ flag, childName: r.name })),
   );
@@ -76,12 +93,12 @@ export function PediatricianList() {
         id: p.id,
         name: p.name,
         age: p.age_years,
-        flagged: false,
+        needsReview: false,
         note: p.note,
         flagId: undefined as string | undefined,
       }));
-    return [...householdRows, ...others];
-  }, [householdRows, state.clusterPatients]);
+    return [...sortedHouseholdRows, ...others];
+  }, [sortedHouseholdRows, householdRows, state.clusterPatients]);
 
   return (
     <Screen
@@ -101,8 +118,8 @@ export function PediatricianList() {
             </Txt>
           </View>
           <Chip
-            label={openFlagCount > 0 ? `${openFlagCount} open flag${openFlagCount === 1 ? '' : 's'}` : 'no open flags'}
-            tone={openFlagCount > 0 ? 'notice' : 'positive'}
+            label={reviewCount > 0 ? `${reviewCount} to review` : 'no new flags'}
+            tone={reviewCount > 0 ? 'notice' : 'positive'}
           />
         </Row>
         <Divider style={styles.divider} />
@@ -122,14 +139,14 @@ export function PediatricianList() {
                   <Txt variant="bodyStrong">
                     {row.name}, age {row.age}
                   </Txt>
-                  {row.flagged ? <Chip label="flag" tone="notice" glyph="⚑" /> : null}
+                  {row.needsReview ? <Chip label="flag" tone="notice" glyph="⚑" /> : null}
                 </Row>
                 <Txt variant="small" tone="soft" style={styles.mtXs}>
                   {row.note}
                 </Txt>
               </View>
 
-              {row.flagged && row.flagId ? (
+              {row.flagId ? (
                 <Button
                   label="Review"
                   small
@@ -149,7 +166,7 @@ export function PediatricianList() {
 
       <Card tone="sunk" label="Notes">
         <Txt variant="bodyStrong">
-          {mappedCount} families mapped · {openFlagCount} open flag{openFlagCount === 1 ? '' : 's'}
+          {mappedCount} families mapped · {reviewCount} flag{reviewCount === 1 ? '' : 's'} to review
         </Txt>
         <Txt variant="small" tone="soft" style={styles.mtXs}>
           Capacity indicator. A cluster far above or below the others is a signal for Khil’s
@@ -165,8 +182,8 @@ export function PediatricianList() {
                 {childName} · {relativeDay(flag.outcome?.marked_at ?? flag.created_at)}
               </Txt>
               <Chip
-                label={flag.outcome?.outcome === 'needs_visit' ? 'needs visit' : 'not concerning'}
-                tone={flag.outcome?.outcome === 'needs_visit' ? 'notice' : 'positive'}
+                label={OUTCOME_LABEL[flag.outcome?.outcome ?? 'not_concerning']}
+                tone={flag.outcome?.outcome === 'not_concerning' ? 'positive' : 'notice'}
               />
             </Row>
           ))}
@@ -185,6 +202,12 @@ export function PediatricianList() {
     </Screen>
   );
 }
+
+const OUTCOME_LABEL: Record<string, string> = {
+  not_concerning: 'not concerning',
+  needs_visit: 'needs visit',
+  diagnosis_pending: 'diagnosis pending',
+};
 
 const styles = StyleSheet.create({
   between: { justifyContent: 'space-between' },
