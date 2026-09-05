@@ -55,15 +55,22 @@ That runs the TypeScript typecheck and then a headless pass over the flag engine
 (`scripts/verify-domain.ts`), which prints exactly what the engine produces from seeded
 data and exits non-zero if any invariant breaks.
 
-### Seeing a flag in under a minute
+### Seeing a flag in under two minutes
 
 A flag legitimately needs a history — that is the whole point of it — so the demo path is:
 
 1. Create an account with PIN **380015** (covered PINs are listed under the field), accept
    the two consents, and add a first child with a DOB that makes them 3–6.
 2. `settings ›` → **Seed 12 days with a clustered pattern**.
-3. Back to the dashboard: the flag is there, with a full report and a specialist portal
-   behind *Specialist portal ›*.
+3. Back to the dashboard: **nothing shows up yet.** That is correct, not a bug — see
+   [Human-in-the-loop](#human-in-the-loop-a-flag-is-a-candidate-until-a-pediatrician-says-otherwise)
+   below. The algorithm has raised a candidate, but no pediatrician has reviewed it, so the
+   parent screen looks exactly as it would on an ordinary week.
+4. Open *Specialist portal ›* from the dashboard. The child now appears at the top with
+   "new pattern · needs your review" and a **Review** button.
+5. Tap **Review**, read the system note and the session history, and tap **Needs visit**.
+6. Go back to the parent view (‹ *parent view*, or *Back to progress*): the flag is there
+   now, with a full report behind *Read more*.
 
 From the dashboard, *Your account ›* opens the profile gate — add a second child (up to the
 plan's limit) to see that their history starts empty and stays completely separate from the
@@ -358,6 +365,3 @@ learn that the app is testing them.
 ---
 
 *Khil (खिल) — to bloom. Course deliverable; pair with the PRD for product context.*
-#   K h i l - F i n a l - A p p  
- #   K h i l - F i n a l - A p p  
- 

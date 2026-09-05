@@ -8,7 +8,7 @@ import { color, radius, space } from '../theme/tokens';
 import { useApp } from '../store/AppStore';
 import { useParams } from '../nav/navigation';
 import { clusterByPin } from '../domain/coverage';
-import { formatClock, relativeDay } from '../lib/time';
+import { formatTimeOfDay, relativeDay } from '../lib/time';
 
 /**
  * Messages — Milestone spec §3: "Secure messaging thread between parent and
@@ -77,7 +77,7 @@ export function Messages() {
                     </Txt>
                   </View>
                   <Txt variant="micro" tone="faint" style={styles.timestamp}>
-                    {relativeDay(m.sent_at)} · {formatClock(Date.now() - m.sent_at)} ago
+                    {relativeDay(m.sent_at)} · {formatTimeOfDay(m.sent_at)}
                   </Txt>
                 </View>
               );
