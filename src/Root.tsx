@@ -24,6 +24,7 @@ import { FlagDetail } from './screens/FlagDetail';
 import { SkillsScreen } from './screens/SkillsScreen';
 import { PediatricianList } from './screens/PediatricianList';
 import { ClipReview } from './screens/ClipReview';
+import { Chat } from './screens/Chat';
 import { DevPanel } from './screens/DevPanel';
 import { ReportHistory } from './screens/ReportHistory';
 import { Privacy } from './screens/Privacy';
@@ -45,6 +46,7 @@ const SCREENS: Record<RouteName, React.ComponentType> = {
   skills: SkillsScreen,
   clinicList: PediatricianList,
   clinicReview: ClipReview,
+  chat: Chat,
   devPanel: DevPanel,
   reportHistory: ReportHistory,
   privacy: Privacy,

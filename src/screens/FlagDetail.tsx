@@ -145,6 +145,16 @@ export function FlagDetail() {
             Message {specialist?.name ?? 'the clinic'} instead ›
           </Txt>
         </Pressable>
+
+        <Pressable
+          onPress={() => nav.push('chat', { childId: flag.child_id, flagId: flag.id })}
+          hitSlop={8}
+          style={styles.mtMd}
+        >
+          <Txt variant="small" tone="brand">
+            💬 Chat about this flag ›
+          </Txt>
+        </Pressable>
       </Card>
     </Screen>
   );

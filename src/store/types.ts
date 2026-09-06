@@ -196,6 +196,32 @@ export type Message = {
   sent_at: number;
 };
 
+/**
+ * Chat origin distinguishes between general Q&A and flag-specific threads.
+ * Keeps conversations separate even when about the same child.
+ */
+export type ChatOrigin = { type: 'general' } | { type: 'flag'; flagId: string };
+
+export function sameOrigin(a: ChatOrigin, b: ChatOrigin): boolean {
+  if (a.type !== b.type) return false;
+  return a.type === 'flag' && b.type === 'flag' ? a.flagId === b.flagId : true;
+}
+
+/**
+ * A message in the research-grounded chatbot thread.
+ * Calls `/api/chat` backend backed by Claude API + research knowledge base.
+ */
+export type ChatMessage = {
+  id: string;
+  child_id: string;
+  from: 'parent' | 'assistant';
+  body: string;
+  sent_at: number;
+  origin: ChatOrigin;
+  /** Titles/links the assistant's answer drew on (assistant messages only). */
+  sources?: { title: string; url: string }[];
+};
+
 export type AppState = {
   hydrated: boolean;
   schema_version: number;
@@ -210,6 +236,7 @@ export type AppState = {
   sessions: SessionRecord[];
   flags: Flag[];
   messages: Message[];
+  chatMessages: ChatMessage[];
   settings: Settings;
   clusterPatients: ClusterPatient[];
 };
@@ -217,8 +244,8 @@ export type AppState = {
 export type PersistedState = Omit<AppState, 'hydrated'>;
 
 export const CONSENT_COPY_VERSION = '2026-08-onboarding-v1';
-/** Bumped for messaging + settings additions; storage clears anything older. */
-export const SCHEMA_VERSION = 3;
+/** Bumped for chatbot addition; storage clears anything older. */
+export const SCHEMA_VERSION = 4;
 
 export const DEFAULT_SETTINGS: Settings = {
   mvpOnly: false,
@@ -241,6 +268,7 @@ export const INITIAL_STATE: AppState = {
   sessions: [],
   flags: [],
   messages: [],
+  chatMessages: [],
   settings: DEFAULT_SETTINGS,
   clusterPatients: [],
 };

@@ -314,6 +314,15 @@ export function ParentDashboard() {
         </Txt>
       </Pressable>
 
+      <Pressable onPress={() => child && nav.push('chat', { childId: child.child_id })} style={styles.portalLink}>
+        <Txt variant="smallStrong" tone="soft">
+          💬 Ask Khil
+        </Txt>
+        <Txt variant="micro" tone="faint">
+          Research-grounded Q&A about screening, development, and play. ›
+        </Txt>
+      </Pressable>
+
       <Pressable onPress={() => nav.push('privacy')} style={styles.portalLink}>
         <Txt variant="smallStrong" tone="soft">
           Privacy & data

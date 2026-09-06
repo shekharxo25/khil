@@ -27,6 +27,8 @@ import {
   type AppState,
   type Avatar,
   type ChildProfile,
+  type ChatMessage,
+  type ChatOrigin,
   type ClusterPatient,
   type ConsentRecord,
   type Message,
@@ -34,6 +36,7 @@ import {
   type PlanId,
   type Settings,
   type UserRole,
+  sameOrigin,
 } from './types';
 import { clusterPatientsFor, seedSessions, type SeedMode } from './demoSeed';
 
@@ -55,6 +58,7 @@ type Action =
   | { type: 'add-flag'; flag: Flag }
   | { type: 'patch-flag'; id: string; patch: Partial<Flag> }
   | { type: 'send-message'; message: Message }
+  | { type: 'send-chat-message'; message: ChatMessage }
   | { type: 'settings'; patch: Partial<Settings> }
   | { type: 'replace'; state: PersistedState }
   | { type: 'reset' };
@@ -141,6 +145,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'send-message':
       return { ...state, messages: [...state.messages, action.message] };
 
+    case 'send-chat-message':
+      return { ...state, chatMessages: [...state.chatMessages, action.message] };
+
     case 'settings':
       return { ...state, settings: { ...state.settings, ...action.patch } };
 
@@ -202,6 +209,8 @@ export type AppApi = {
   flagsFor: (childId: string) => Flag[];
   messagesFor: (childId: string) => Message[];
   sendMessage: (childId: string, from: Message['from'], body: string) => void;
+  chatMessagesFor: (childId: string, origin: ChatOrigin) => ChatMessage[];
+  sendChatMessage: (childId: string, origin: ChatOrigin, body: string) => void;
 
   completeSession: (session: SessionRecord) => Flag | null;
   patchFlag: (id: string, patch: Partial<Flag>) => void;
@@ -402,6 +411,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sessions: [...others, ...sessions],
         flags: evaluation.flag ? [...otherFlags, evaluation.flag] : otherFlags,
         messages: current.messages,
+        chatMessages: current.chatMessages,
         settings: current.settings,
         clusterPatients: current.clusterPatients,
       },
@@ -446,6 +456,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const chatMessagesFor = useCallback(
+    (childId: string, origin: ChatOrigin) =>
+      stateRef.current.chatMessages.filter(m => m.child_id === childId && sameOrigin(m.origin, origin)),
+    [],
+  );
+
+  const sendChatMessage = useCallback((childId: string, origin: ChatOrigin, body: string) => {
+    const trimmed = body.trim();
+    if (!trimmed) return;
+    dispatch({
+      type: 'send-chat-message',
+      message: { id: makeId('msg'), child_id: childId, from: 'parent', body: trimmed, sent_at: Date.now(), origin },
+    });
+  }, []);
+
   // Local session reminders track the toggle and the active child's name.
   // Scheduling is a side effect on top of otherwise-pure state, which is why
   // it lives here rather than in domain/store logic.
@@ -485,6 +510,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       flagsFor,
       messagesFor,
       sendMessage,
+      chatMessagesFor,
+      sendChatMessage,
       completeSession,
       patchFlag,
       bookAppointment,
@@ -514,6 +541,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       flagsFor,
       messagesFor,
       sendMessage,
+      chatMessagesFor,
+      sendChatMessage,
       completeSession,
       patchFlag,
       bookAppointment,

@@ -135,3 +135,28 @@ export function assertParentSafeCopy(text: string, where: string): string {
   console.warn(message);
   return SAFE_FALLBACK;
 }
+
+/**
+ * Gate for chatbot replies from the Claude API backend.
+ *
+ * The chat assistant discusses published research, which inevitably names conditions
+ * and discusses measures. However, it must never:
+ * 1. Tell a parent their child has/shows signs of a condition.
+ * 2. State a personalized risk score or severity.
+ * 3. Give medical advice beyond "ask the specialist".
+ *
+ * This gate keeps those rules in code. It uses the core ban list (condition names,
+ * deficit language, scored risk) but allows the measure and condition-discussion
+ * terms that are fine in research-discussion context.
+ */
+export function assertChatSafeReply(text: string, where: string): string {
+  const unsafe = findUnsafeTerms(text);
+  if (unsafe.length === 0) return text;
+
+  const message = `[khil/safe-language:chat] ${where} contained disallowed term(s): ${unsafe.join(', ')}`;
+  if (__DEV__) {
+    throw new Error(message);
+  }
+  console.warn(message);
+  return SAFE_FALLBACK;
+}

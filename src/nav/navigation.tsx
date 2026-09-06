@@ -38,6 +38,8 @@ export type RouteMap = {
   reportHistory: { periodIndex: number };
   /** Message thread with the mapped specialist, for a parent or a pediatrician. */
   messages: { childId: string; asClinician?: boolean };
+  /** Research-grounded chatbot thread (general or flag-specific). */
+  chat: { childId: string; flagId?: string };
   /** Consent & data controls — Milestone spec §3. */
   privacy: undefined;
   clinicList: undefined;
