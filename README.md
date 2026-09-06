@@ -55,6 +55,18 @@ That runs the TypeScript typecheck and then a headless pass over the flag engine
 (`scripts/verify-domain.ts`), which prints exactly what the engine produces from seeded
 data and exits non-zero if any invariant breaks.
 
+## Login and roles
+
+The app now starts with a role-selection screen: **I'm a Parent** or **I'm a Pediatrician**.
+
+**Parent flow:** PIN onboarding → add children → parent dashboard → play sessions.
+
+**Pediatrician flow:** Clinic setup (PIN + clinic name) → patient roster (by PIN cluster) →
+review flags with session history → three-way outcome tagging (not concerning / needs visit /
+diagnosis pending, for tracking false-positive rates).
+
+Both roles can log out from the settings panel (`settings ›` → Account section).
+
 ### Seeing a flag in under two minutes
 
 A flag legitimately needs a history — that is the whole point of it — so the demo path is:
