@@ -12,8 +12,12 @@ import type { GameId } from '../domain/games';
  */
 
 export type RouteMap = {
-  /** Account creation: PIN, specialist match, consent. Once per household. */
+  /** Role selection: parent vs pediatrician login. */
+  login: undefined;
+  /** Parent household onboarding: PIN, specialist match, consent. */
   onboarding: undefined;
+  /** Pediatrician onboarding: clinic details, specialist info. */
+  pediatricianOnboarding: undefined;
   /** "Who's playing?" — the gate every parent lands on. */
   profileGate: undefined;
   /** Create a child, or edit one. `childId` absent means create. */

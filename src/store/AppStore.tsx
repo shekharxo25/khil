@@ -33,11 +33,13 @@ import {
   type PersistedState,
   type PlanId,
   type Settings,
+  type UserRole,
 } from './types';
 import { clusterPatientsFor, seedSessions, type SeedMode } from './demoSeed';
 
 type Action =
   | { type: 'hydrate'; payload: PersistedState | null }
+  | { type: 'set-role'; role: UserRole; clinicianId?: string }
   | {
       type: 'create-account';
       account: Account;
@@ -70,6 +72,13 @@ function reducer(state: AppState, action: Action): AppState {
             hydrated: true,
           }
         : { ...INITIAL_STATE, hydrated: true };
+
+    case 'set-role':
+      return {
+        ...state,
+        userRole: action.role,
+        clinicianId: action.clinicianId ?? null,
+      };
 
     case 'create-account':
       return {
@@ -166,6 +175,11 @@ export type AddProfileResult =
 export type AppApi = {
   state: AppState;
 
+  // Authentication
+  loginAsParent: () => void;
+  loginAsPediatrician: (clinicianId: string) => void;
+  logout: () => void;
+
   // Account
   createAccount: (input: CreateAccountInput) => void;
   setPlan: (plan: PlanId) => void;
@@ -236,6 +250,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  const loginAsParent = useCallback(() => {
+    dispatch({ type: 'set-role', role: 'parent' });
+  }, []);
+
+  const loginAsPediatrician = useCallback((clinicianId: string) => {
+    dispatch({ type: 'set-role', role: 'pediatrician', clinicianId });
+  }, []);
+
+  const logout = useCallback(() => {
+    void clearState();
+    dispatch({ type: 'reset' });
+  }, []);
 
   const createAccount = useCallback((input: CreateAccountInput) => {
     const account: Account = {
@@ -366,6 +393,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'replace',
       state: {
         schema_version: SCHEMA_VERSION,
+        userRole: current.userRole,
+        clinicianId: current.clinicianId,
         account: current.account,
         consent: current.consent,
         profiles: current.profiles,
@@ -436,6 +465,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AppApi>(
     () => ({
       state,
+      loginAsParent,
+      loginAsPediatrician,
+      logout,
       createAccount,
       setPlan,
       profiles: state.profiles,
@@ -464,6 +496,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       state,
+      loginAsParent,
+      loginAsPediatrician,
+      logout,
       createAccount,
       setPlan,
       child,

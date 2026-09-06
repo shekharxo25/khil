@@ -163,6 +163,9 @@ export type Settings = {
   remindersEnabled: boolean;
 };
 
+/** User role determines which screens and data they see. */
+export type UserRole = 'parent' | 'pediatrician' | null;
+
 /** Other families in the clinician's PIN cluster. Fictional, never flagged. */
 export type ClusterPatient = {
   id: string;
@@ -196,6 +199,10 @@ export type Message = {
 export type AppState = {
   hydrated: boolean;
   schema_version: number;
+  /** 'parent' = household login, 'pediatrician' = specialist login. */
+  userRole: UserRole;
+  /** Clinician ID for pediatrician sessions (demo: matches specialist_id). */
+  clinicianId: string | null;
   account: Account | null;
   consent: ConsentRecord | null;
   profiles: ChildProfile[];
@@ -225,6 +232,8 @@ export const DEFAULT_SETTINGS: Settings = {
 export const INITIAL_STATE: AppState = {
   hydrated: false,
   schema_version: SCHEMA_VERSION,
+  userRole: null,
+  clinicianId: null,
   account: null,
   consent: null,
   profiles: [],

@@ -30,7 +30,7 @@ import { REMINDERS_SUPPORTED } from '../lib/reminders';
  * self-checks that enforce the spec's language rule.
  */
 export function DevPanel() {
-  const { state, child, sessions, flags, setSettings, seedDemoHistory, resetAll } = useApp();
+  const { state, child, sessions, flags, setSettings, seedDemoHistory, resetAll, logout } = useApp();
   const nav = useNav();
   const [showJson, setShowJson] = useState(false);
 
@@ -300,6 +300,22 @@ export function DevPanel() {
             </Txt>
           </ScrollView>
         ) : null}
+      </Card>
+
+      <Card label="Account">
+        <Button
+          label="🚪 Logout"
+          variant="quiet"
+          onPress={() => {
+            if (confirm('Log out and return to the login screen?')) {
+              logout();
+              nav.reset('login');
+            }
+          }}
+        />
+        <Txt variant="micro" tone="soft" style={styles.mtSm}>
+          Clears all data and returns to role selection.
+        </Txt>
       </Card>
     </Screen>
   );
