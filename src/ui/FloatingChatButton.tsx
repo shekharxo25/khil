@@ -37,8 +37,13 @@ export function FloatingChatButton({
           animationType="fade"
           onRequestClose={onClose}
         >
-          <Pressable style={styles.backdrop} onPress={onClose}>
-            <View style={styles.modal}>{children}</View>
+          <Pressable
+            style={styles.backdrop}
+            onPress={onClose}
+          >
+            <Pressable style={styles.modal} onPress={() => {}}>
+              {children}
+            </Pressable>
           </Pressable>
         </Modal>
       )}
