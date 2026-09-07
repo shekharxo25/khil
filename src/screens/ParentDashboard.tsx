@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Screen } from '../ui/Screen';
 import { Txt } from '../ui/Txt';
@@ -6,7 +6,11 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Chip, Divider, Row } from '../ui/Bits';
 import { Bloom } from '../ui/Bloom';
+import { FloatingChatButton } from '../ui/FloatingChatButton';
+import { MiniChatModal } from '../ui/MiniChatModal';
 import { color, radius, space } from '../theme/tokens';
+import { askChatbot } from '../lib/chatApi';
+import type { ChatMessage, ChatOrigin } from '../store/types';
 import { useApp } from '../store/AppStore';
 import { useNav } from '../nav/navigation';
 import { DOMAIN_COUNT, DOMAINS, domainLabel } from '../domain/domains';
@@ -37,8 +41,40 @@ import type { ChildProfile } from '../store/types';
  * on this screen ever compares one sibling against another.
  */
 export function ParentDashboard() {
-  const { state, child, profiles, sessions, flags, selectProfile } = useApp();
+  const { state, child, profiles, sessions, flags, selectProfile, chatMessagesFor, sendChatMessage } = useApp();
   const nav = useNav();
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const chatOrigin: ChatOrigin = { type: 'general' };
+
+  // Load chat messages on mount
+  React.useEffect(() => {
+    if (child) {
+      const msgs = chatMessagesFor(child.child_id, chatOrigin);
+      setChatMessages(msgs);
+    }
+  }, [child, chatMessagesFor]);
+
+  const handleSendChatMessage = async (text: string) => {
+    if (!child) return;
+    try {
+      setChatLoading(true);
+      sendChatMessage(child.child_id, chatOrigin, text);
+      const result = await askChatbot({
+        message: text,
+        history: chatMessages,
+      });
+      sendChatMessage(child.child_id, chatOrigin, result.reply);
+      const msgs = chatMessagesFor(child.child_id, chatOrigin);
+      setChatMessages(msgs);
+    } catch (error) {
+      console.error('Chat error:', error);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   const ageMonths = child ? ageInMonths(child.dob_iso) : 48;
   const weekStart = startOfWeek().getTime();
@@ -72,7 +108,8 @@ export function ParentDashboard() {
   const minutes = Math.max(2, Math.round(plan.estimated_ms / 60000));
 
   return (
-    <Screen
+    <View style={{ flex: 1 }}>
+      <Screen
       footer={
         <>
           <Button
@@ -331,7 +368,20 @@ export function ParentDashboard() {
           See exactly what Khil has stored, or delete it. ›
         </Txt>
       </Pressable>
-    </Screen>
+      </Screen>
+
+      <FloatingChatButton
+        onPress={() => setChatOpen(true)}
+        visible={chatOpen}
+        onClose={() => setChatOpen(false)}
+      >
+        <MiniChatModal
+          messages={chatMessages}
+          onSendMessage={handleSendChatMessage}
+          onClose={() => setChatOpen(false)}
+        />
+      </FloatingChatButton>
+    </View>
   );
 }
 
