@@ -4,10 +4,13 @@ import type { ChatMessage } from '../store/types';
  * Thin fetch wrapper around the `/api/chat` Vercel serverless function (see
  * `api/chat.ts`). `EXPO_PUBLIC_CHAT_API_URL` is net-new to this repo — Expo
  * exposes any `EXPO_PUBLIC_*` env var to client code via `process.env`
- * directly, no `expo-constants` needed. Falls back to a local `vercel dev`
- * address so the app has something to hit out of the box in development.
+ * directly, no `expo-constants` needed. Defaults to a same-origin relative
+ * path — correct both in production (the API route is served from the same
+ * Vercel domain as the app) and under `vercel dev` locally. Only override
+ * `EXPO_PUBLIC_CHAT_API_URL` when the API truly lives on a different origin
+ * (e.g. `expo start` web without `vercel dev` in front of it).
  */
-const API_URL = process.env.EXPO_PUBLIC_CHAT_API_URL ?? 'http://localhost:3000/api/chat';
+const API_URL = process.env.EXPO_PUBLIC_CHAT_API_URL ?? '/api/chat';
 
 export type ChatSource = { title: string; url: string };
 
