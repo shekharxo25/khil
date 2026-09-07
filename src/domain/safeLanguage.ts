@@ -61,6 +61,15 @@ const SAFE_FALLBACK =
   'Something in this week’s play is worth a second look. A specialist can tell you more.';
 
 /**
+ * `__DEV__` is an Expo/Metro-injected global — it doesn't exist when this
+ * module runs inside a plain Node.js process (e.g. the `api/chat.ts` Vercel
+ * serverless function imports `assertChatSafeReply` from this file directly,
+ * with no Metro bundling in between), so every reference must be guarded
+ * rather than used bare.
+ */
+const isDevEnv = typeof __DEV__ !== 'undefined' && __DEV__;
+
+/**
  * Gate for any generated, child-specific string.
  * Throws during development so the violation is impossible to ship silently.
  */
@@ -69,7 +78,7 @@ export function assertSafeCopy(text: string, where: string): string {
   if (hits.length === 0) return text;
 
   const message = `[khil/safe-language] ${where} contained disallowed term(s): ${hits.join(', ')}`;
-  if (__DEV__) {
+  if (isDevEnv) {
     throw new Error(message);
   }
   // Production: never render the offending string, and never log the string itself.
@@ -81,7 +90,7 @@ export function assertSafeCopy(text: string, where: string): string {
  * Console/log gate. Spec forbids condition names in logs, not just UI.
  */
 export function safeLog(where: string, text: string): void {
-  if (!__DEV__) return;
+  if (!isDevEnv) return;
   console.log(`[khil] ${where}: ${assertSafeCopy(text, `log:${where}`)}`);
 }
 
@@ -129,7 +138,32 @@ export function assertParentSafeCopy(text: string, where: string): string {
   if (hits.length === 0) return text;
 
   const message = `[khil/safe-language:parent] ${where} contained disallowed term(s): ${hits.join(', ')}`;
-  if (__DEV__) {
+  if (isDevEnv) {
+    throw new Error(message);
+  }
+  console.warn(message);
+  return SAFE_FALLBACK;
+}
+
+/**
+ * Gate for chatbot replies from the Claude API backend.
+ *
+ * The chat assistant discusses published research, which inevitably names conditions
+ * and discusses measures. However, it must never:
+ * 1. Tell a parent their child has/shows signs of a condition.
+ * 2. State a personalized risk score or severity.
+ * 3. Give medical advice beyond "ask the specialist".
+ *
+ * This gate keeps those rules in code. It uses the core ban list (condition names,
+ * deficit language, scored risk) but allows the measure and condition-discussion
+ * terms that are fine in research-discussion context.
+ */
+export function assertChatSafeReply(text: string, where: string): string {
+  const unsafe = findUnsafeTerms(text);
+  if (unsafe.length === 0) return text;
+
+  const message = `[khil/safe-language:chat] ${where} contained disallowed term(s): ${unsafe.join(', ')}`;
+  if (isDevEnv) {
     throw new Error(message);
   }
   console.warn(message);

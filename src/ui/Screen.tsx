@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, space } from '../theme/tokens';
 import { Txt } from './Txt';
+import { NavigationButton } from './NavigationButton';
 import { useNav } from '../nav/navigation';
 
 type Props = {
@@ -25,6 +26,8 @@ type Props = {
   /** Pinned footer that never scrolls (used for primary actions). */
   footer?: React.ReactNode;
   contentStyle?: ViewStyle;
+  /** Use kid-friendly colorful navigation buttons instead of text-based back. */
+  kidFriendlyNav?: boolean;
 };
 
 export function Screen({
@@ -37,6 +40,7 @@ export function Screen({
   background = color.paper,
   footer,
   contentStyle,
+  kidFriendlyNav = false,
 }: Props) {
   const insets = useSafeAreaInsets();
   const nav = useNav();
@@ -46,17 +50,24 @@ export function Screen({
     showBack || title ? (
       <View style={styles.header}>
         {showBack ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Back to ${backLabel}`}
-            hitSlop={12}
-            onPress={onBack ?? (() => nav.back())}
-            style={styles.back}
-          >
-            <Txt variant="small" tone="brand">
-              ‹ {backLabel}
-            </Txt>
-          </Pressable>
+          kidFriendlyNav ? (
+            <NavigationButton
+              type="back"
+              onPress={onBack ?? (() => nav.back())}
+            />
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Back to ${backLabel}`}
+              hitSlop={12}
+              onPress={onBack ?? (() => nav.back())}
+              style={styles.back}
+            >
+              <Txt variant="small" tone="brand">
+                ‹ {backLabel}
+              </Txt>
+            </Pressable>
+          )
         ) : null}
         {eyebrow ? (
           <Txt variant="label" tone="faint" style={styles.eyebrow}>

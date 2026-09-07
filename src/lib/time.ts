@@ -65,6 +65,17 @@ export function formatClock(ms: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+/** "3:42 PM" — a clock time, not a duration. For "sent at" style timestamps. */
+export function formatTimeOfDay(ms: number): string {
+  const d = new Date(ms);
+  let hours = d.getHours();
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  return `${hours}:${minutes} ${suffix}`;
+}
+
 export function relativeDay(ms: number, now: number = Date.now()): string {
   if (isSameDay(ms, now)) return 'Today';
   if (isSameDay(ms, now - DAY_MS)) return 'Yesterday';
