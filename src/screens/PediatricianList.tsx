@@ -104,6 +104,22 @@ export function PediatricianList() {
     <Screen
       background={color.paper}
       backLabel="parent view"
+      onBack={() => {
+        // Reached two ways: (1) a parent tapped "Specialist portal" from
+        // their own dashboard — that push left parentHome underneath, so a
+        // plain pop is correct; (2) a pediatrician signed in directly from
+        // Login — this screen is the root of their stack, there is nothing
+        // beneath it to pop to, and `nav.back()` would silently no-op,
+        // stranding them here. In that case, send them to role selection
+        // (still on the SAME NavigationProvider instance, so this doesn't
+        // touch stored account/profile data) so they can pick "I'm a
+        // Parent" and continue into the app from there.
+        if (nav.canGoBack) {
+          nav.back();
+        } else {
+          nav.reset('login');
+        }
+      }}
       eyebrow="Specialist portal"
       title={`Mapped patients — PIN ${pin}`}
     >
